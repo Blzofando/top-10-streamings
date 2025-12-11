@@ -1,0 +1,5 @@
+/* Adição ao styles.css existente */
+.action-btn.danger {
+    background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+    box-shadow: 0 4px 15px rgba(255, 65, 108, 0.4);
+}

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎬 FlixPatrol Top 10 Viewer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>🎬 FlixPatrol Top 10</h1>
+            <p class="subtitle">Visualize os rankings dos principais streamings</p>
+
+            <div class="global-actions">
+                <button class="action-btn simple" onclick="loadAll(false)">
+                    🌐 Buscar Todos (Simples)
+                </button>
+                <button class="action-btn match" onclick="loadAll(true)">
+                    🎬 Buscar Todos (Com Match)
+                </button>
+                <button class="action-btn danger" onclick="clearCache()">
+                    🗑️ Limpar Cache
+                </button>
+            </div>
+        </header>
+
+        <div class="streaming-grid">
+            <!-- Disney+ -->
+            <div class="streaming-card" id="disney-card">
+                <div class="streaming-header disney">
+                    <h2>Disney+</h2>
+                </div>
+                <div class="content" id="disney-content">
+                    <button class="load-btn" onclick="loadStreaming('disney')">
+                        Carregar Top 10
+                    </button>
+                </div>
+            </div>
+
+            <!-- Netflix -->
+            <div class="streaming-card" id="netflix-card">
+                <div class="streaming-header netflix">
+                    <h2>Netflix</h2>
+                </div>
+                <div class="content" id="netflix-content">
+                    <button class="load-btn" onclick="loadStreaming('netflix')">
+                        Carregar Top 10
+                    </button>
+                </div>
+            </div>
+
+            <!-- HBO Max -->
+            <div class="streaming-card" id="hbo-card">
+                <div class="streaming-header hbo">
+                    <h2>HBO Max</h2>
+                </div>
+                <div class="content" id="hbo-content">
+                    <button class="load-btn" onclick="loadStreaming('hbo')">
+                        Carregar Top 10
+                    </button>
+                </div>
+            </div>
+
+            <!-- Amazon Prime -->
+            <div class="streaming-card" id="prime-card">
+                <div class="streaming-header prime">
+                    <h2>Prime Video</h2>
+                </div>
+                <div class="content" id="prime-content">
+                    <button class="load-btn" onclick="loadStreaming('prime')">
+                        Carregar Top 10
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs Section -->
+        <div class="logs-container">
+            <h3>📑 Logs de Processamento</h3>
+            <div id="logs-content" class="logs-content"></div>
+        </div>
+    </div>
+
+    <!-- Modal para o carrossel -->
+    <div id="carousel-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 id="modal-title"></h2>
+            <div class="carousel" id="carousel"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
