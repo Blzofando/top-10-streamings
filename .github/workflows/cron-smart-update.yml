@@ -4,7 +4,7 @@ on:
   schedule:
     # Executa a cada 10 minutos
     # Repositório PÚBLICO = execuções ILIMITADAS e GRATUITAS! 🎉
-    - cron: '*/10 * * * *'
+    - cron: '*/20 * * * *'
   
   # Permite execução manual
   workflow_dispatch:
