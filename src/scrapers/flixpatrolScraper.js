@@ -57,11 +57,11 @@ export class FlixPatrolScraper {
             // Acessa a página e espera carregar
             await page.goto(url, {
                 waitUntil: 'networkidle2',
-                timeout: 30000
+                timeout: 120000
             });
 
             // Espera as tabelas carregarem
-            await page.waitForSelector('table.card-table', { timeout: 10000 });
+            await page.waitForSelector('table.card-table', { timeout: 20000 });
 
             // Extrai dados das tabelas
             const data = await page.evaluate(() => {
