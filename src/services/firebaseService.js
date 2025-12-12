@@ -1,10 +1,4 @@
 import admin from 'firebase-admin';
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 /**
  * Serviço para gerenciar operações com Firebase Firestore
@@ -16,15 +10,31 @@ class FirebaseService {
     }
 
     /**
-     * Inicializa a conexão com o Firebase
+     * Inicializa a conexão com o Firebase usando variáveis de ambiente
      */
     initialize() {
         if (this.initialized) return;
 
         try {
-            // Carrega as credenciais
-            const credentialsPath = join(__dirname, '../config/firebase-credentials.json');
-            const serviceAccount = JSON.parse(readFileSync(credentialsPath, 'utf8'));
+            // Carrega credenciais das variáveis de ambiente
+            const serviceAccount = {
+                type: "service_account",
+                project_id: process.env.FIREBASE_PROJECT_ID,
+                private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+                private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'), // Corrige quebras de linha
+                client_email: process.env.FIREBASE_CLIENT_EMAIL,
+                client_id: process.env.FIREBASE_CLIENT_ID,
+                auth_uri: "https://accounts.google.com/o/oauth2/auth",
+                token_uri: "https://oauth2.googleapis.com/token",
+                auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+                client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL,
+                universe_domain: "googleapis.com"
+            };
+
+            // Valida se todas as variáveis necessárias estão presentes
+            if (!serviceAccount.project_id || !serviceAccount.private_key || !serviceAccount.client_email) {
+                throw new Error('Variáveis de ambiente do Firebase não configuradas! Configure FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY e FIREBASE_CLIENT_EMAIL');
+            }
 
             // Inicializa o Firebase Admin
             admin.initializeApp({
@@ -35,7 +45,7 @@ class FirebaseService {
             this.db = admin.firestore();
             this.initialized = true;
 
-            console.log('✅ Firebase inicializado com sucesso');
+            console.log('✅ Firebase inicializado com sucesso (usando env vars)');
         } catch (error) {
             console.error('❌ Erro ao inicializar Firebase:', error.message);
             throw error;

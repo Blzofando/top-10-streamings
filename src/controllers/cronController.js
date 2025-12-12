@@ -48,12 +48,18 @@ export class CronController {
 
     /**
      * Atualiza apenas os serviços cujos dados expiraram
-     * Processa sequencialmente para evitar sobrecarga
+     * Processa sequencialmente com delay manual entre cada serviço
      * 
      * GET /api/cron/update-expired
      */
     async updateExpiredData(req, res) {
-        const services = ['netflix', 'disney', 'hbo', 'prime'];
+        const services = [
+            { name: 'netflix', delayMinutes: 0 },   // Executa imediatamente
+            { name: 'disney', delayMinutes: 20 },   // +20 min
+            { name: 'hbo', delayMinutes: 40 },      // +40 min
+            { name: 'prime', delayMinutes: 60 }     // +60 min
+        ];
+
         const results = {
             timestamp: new Date().toISOString(),
             checked: [],
@@ -64,8 +70,10 @@ export class CronController {
 
         console.log('\n🔄 ===== CRON JOB: Verificando dados expirados =====');
 
-        // Processa cada serviço SEQUENCIALMENTE
-        for (const service of services) {
+        // Processa cada serviço SEQUENCIALMENTE com delay
+        for (const serviceConfig of services) {
+            const service = serviceConfig.name;
+
             try {
                 results.checked.push(service);
 
@@ -73,19 +81,34 @@ export class CronController {
                 const expired = await this.isDataExpired(service);
 
                 if (expired) {
-                    console.log(`\n🔄 [${service}] INICIANDO atualização...`);
+                    // Calcula se já passou o tempo de delay desse serviço
+                    const now = new Date();
+                    const currentMinutes = now.getMinutes();
+                    const targetMinute = serviceConfig.delayMinutes % 60;
 
-                    // Atualiza com TMDB e salva no Firebase
-                    await streamingController.getTop10(service, true, true);
+                    // Se estamos no minuto certo (com margem de ±5 min), atualiza
+                    const minuteDiff = Math.abs(currentMinutes - targetMinute);
+                    const shouldUpdateNow = minuteDiff <= 5 || minuteDiff >= 55;
 
-                    results.updated.push(service);
-                    console.log(`✅ [${service}] Atualizado com sucesso!`);
+                    if (shouldUpdateNow) {
+                        console.log(`\n🔄 [${service}] INICIANDO atualização... (delay: ${serviceConfig.delayMinutes} min)`);
+
+                        // Atualiza com TMDB e salva no Firebase
+                        await streamingController.getTop10(service, true, true);
+
+                        results.updated.push(service);
+                        console.log(`✅ [${service}] Atualizado com sucesso!`);
+                    } else {
+                        results.skipped.push(service);
+                        const nextUpdateMin = targetMinute - currentMinutes;
+                        console.log(`⏰ [${service}] Expirado mas aguardando delay (próx atualização em ~${nextUpdateMin} min)`);
+                    }
                 } else {
                     results.skipped.push(service);
                     console.log(`⏭️  [${service}] PULADO - ainda válido`);
                 }
 
-                // Pequeno delay entre serviços (mesmo se pular)
+                // Pequeno delay entre verificações
                 await new Promise(resolve => setTimeout(resolve, 1000));
 
             } catch (error) {

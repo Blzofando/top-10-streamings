@@ -182,7 +182,7 @@ export class FlixPatrolScraper {
                 }
             });
 
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
             const details = await page.evaluate(() => {
                 const result = {};
