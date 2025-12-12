@@ -1,6 +1,9 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import streamingRoutes from './routes/streamingRoutes.js';
+import top10Routes from './routes/top10Routes.js';
+import firebaseRoutes from './routes/firebaseRoutes.js';
+import cronRoutes from './routes/cronRoutes.js';
 import { scraper } from './scrapers/flixpatrolScraper.js';
 
 dotenv.config();
@@ -22,17 +25,33 @@ app.use((req, res, next) => {
 // Rota inicial
 app.get('/', (req, res) => {
     res.json({
-        message: '🎬 FlixPatrol API',
-        version: '1.0.0',
+        message: '🎬 FlixPatrol API com Firebase',
+        version: '2.0.0',
         endpoints: {
-            disney: '/api/disney',
-            netflix: '/api/netflix',
-            hbo: '/api/hbo',
-            prime: '/api/prime',
-            all: '/api/all'
+            top10: {
+                netflix: '/api/top-10/netflix',
+                disney: '/api/top-10/disney',
+                hbo: '/api/top-10/hbo',
+                prime: '/api/top-10/prime',
+                all: '/api/top-10/all'
+            },
+            firebase: {
+                history: '/api/firebase/history/:service/:type/:date',
+                latest: '/api/firebase/latest/:service/:type',
+                dates: '/api/firebase/dates/:service/:type'
+            },
+            cron: {
+                updateExpired: '/api/cron/update-expired',
+                health: '/api/cron/health'
+            },
+            legacy: {
+                note: 'Rotas antigas ainda funcionam para compatibilidade',
+                examples: ['/api/netflix', '/api/disney', '/api/hbo', '/api/prime']
+            }
         },
         params: {
-            tmdb: 'Adicione ?tmdb=true para enriquecer com dados do TMDB'
+            tmdb: 'Adicione ?tmdb=true para enriquecer com dados do TMDB em PT-BR',
+            save: 'Por padrão salva no Firebase. Use ?save=false para desabilitar'
         },
         cache: {
             stats: '/api/cache/stats',
@@ -41,7 +60,12 @@ app.get('/', (req, res) => {
     });
 });
 
-// Rotas da API
+// Novas rotas (top-10 pattern)
+app.use('/api/top-10', top10Routes);
+app.use('/api/firebase', firebaseRoutes);
+app.use('/api/cron', cronRoutes);
+
+// Rotas antigas (backward compatibility)
 app.use('/api', streamingRoutes);
 
 // Tratamento de erros
@@ -57,18 +81,26 @@ app.use((err, req, res, next) => {
 const server = app.listen(PORT, () => {
     console.log('');
     console.log('🚀 ========================================');
-    console.log(`🎬 FlixPatrol API rodando na porta ${PORT}`);
+    console.log(`🎬 FlixPatrol API + Firebase na porta ${PORT}`);
     console.log('🌐 http://localhost:' + PORT);
     console.log('========================================');
     console.log('');
     console.log('📡 Endpoints disponíveis:');
-    console.log(`   GET  http://localhost:${PORT}/api/disney`);
-    console.log(`   GET  http://localhost:${PORT}/api/netflix`);
-    console.log(`   GET  http://localhost:${PORT}/api/hbo`);
-    console.log(`   GET  http://localhost:${PORT}/api/prime`);
-    console.log(`   GET  http://localhost:${PORT}/api/all`);
     console.log('');
-    console.log('💡 Adicione ?tmdb=true para enriquecer com TMDB');
+    console.log('  🔥 Novos (com Firebase):');
+    console.log(`   GET  http://localhost:${PORT}/api/top-10/netflix`);
+    console.log(`   GET  http://localhost:${PORT}/api/top-10/disney`);
+    console.log(`   GET  http://localhost:${PORT}/api/top-10/hbo`);
+    console.log(`   GET  http://localhost:${PORT}/api/top-10/prime`);
+    console.log(`   GET  http://localhost:${PORT}/api/top-10/all`);
+    console.log('');
+    console.log('  📚 Histórico Firebase:');
+    console.log(`   GET  http://localhost:${PORT}/api/firebase/latest/:service/:type`);
+    console.log(`   GET  http://localhost:${PORT}/api/firebase/history/:service/:type/:date`);
+    console.log(`   GET  http://localhost:${PORT}/api/firebase/dates/:service/:type`);
+    console.log('');
+    console.log('💡 Adicione ?tmdb=true para enriquecer com TMDB (PT-BR)');
+    console.log('💾 Por padrão salva no Firebase (use ?save=false para desabilitar)');
     console.log('');
 });
 

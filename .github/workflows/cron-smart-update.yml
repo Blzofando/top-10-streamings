@@ -1,0 +1,44 @@
+name: Smart Update Cron
+
+on:
+  schedule:
+    # Executa a cada 10 minutos
+    # Repositório PÚBLICO = execuções ILIMITADAS e GRATUITAS! 🎉
+    - cron: '*/10 * * * *'
+  
+  # Permite execução manual
+  workflow_dispatch:
+
+jobs:
+  smart-update:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Smart Update - Verifica e Atualiza Dados Expirados
+        run: |
+          echo "🔄 Iniciando verificação inteligente de dados expirados..."
+          echo "📅 $(date)"
+          
+          # Chama endpoint inteligente que:
+          # 1. Verifica timestamps no Firebase
+          # 2. Só atualiza se passou > 3 horas
+          # 3. Processa sequencialmente
+          response=$(curl -s -w "\n%{http_code}" \
+            -X GET "${{ secrets.API_URL }}/api/cron/update-expired")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "📊 Status HTTP: $http_code"
+          
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ Cron job executado com sucesso!"
+            echo ""
+            echo "📋 Resumo:"
+            echo "$body" | grep -o '"updated":\[[^]]*\]' || echo "Nenhum atualizado"
+            echo "$body" | grep -o '"skipped":\[[^]]*\]' || echo "Todos expirados"
+          else
+            echo "❌ Erro no cron job"
+            echo "Resposta: $body"
+            exit 1
+          fi
