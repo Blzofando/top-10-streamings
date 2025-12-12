@@ -18,7 +18,7 @@ A melhor opção gratuita para esse tipo de projeto é o **Render.com**.
     *   Role para baixo até **"Environment Variables"** e clique em "Add Environment Variable".
     *   Adicione o seguinte:
         *   `TMDB_API_KEY` : (Cole sua chave do TMDB aqui)
-        *   `PUPPETEER_CACHE_DIR` : `/opt/render/project/src/.cache/puppeteer`
+        *   `NODE_ENV` : `production`
         *   `NODE_VERSION` : `18` (Opcional, mas bom garantir)
 
 6.  Clique em **"Create Web Service"**.

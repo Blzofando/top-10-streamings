@@ -1,4 +1,5 @@
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 
 /**
  * Extrai dados do FlixPatrol usando Puppeteer
@@ -13,14 +14,19 @@ export class FlixPatrolScraper {
      */
     async initialize() {
         if (!this.browser) {
+            // Detecta se está em produção (Render/cloud) ou local
+            const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
+
             this.browser = await puppeteer.launch({
-                headless: 'new',
-                args: [
+                args: isProduction ? chromium.args : [
                     '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage', // Necessário para ambientes como Docker/Render
-                    '--single-process' // Opcional, ajuda em alguns casos
-                ]
+                    '--disable-setuid-sandbox'
+                ],
+                defaultViewport: chromium.defaultViewport,
+                executablePath: isProduction
+                    ? await chromium.executablePath()
+                    : process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+                headless: chromium.headless || 'new'
             });
         }
     }
@@ -46,7 +52,7 @@ export class FlixPatrolScraper {
         const page = await this.browser.newPage();
 
         try {
-            console.log(`📡 Acessando: ${url}`);
+            console.log(`📡 Acessando: ${url} `);
 
             // Acessa a página e espera carregar
             await page.goto(url, {
