@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# exit on error
+set -o errexit
+
+npm install
+npm run build # se tiver build, mas aqui não tem.
+
+# Instala dependências do Chrome se necessário (Render geralmente precisa)
+# No Render, usar Environment: Node, e adicionar variáveis se preciso. 
+# Mas para puppeteer no Render, o ideal é usar o cache do puppeteer ou instalar chrome.
+# O melhor jeito no Render é adicionar uma Environment Variable:
+# PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = true (se usar o chrome do sistema) ou deixar baixar.
+# Mas o Render tem 'Build Commands'.

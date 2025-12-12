@@ -15,7 +15,12 @@ export class FlixPatrolScraper {
         if (!this.browser) {
             this.browser = await puppeteer.launch({
                 headless: 'new',
-                args: ['--no-sandbox', '--disable-setuid-sandbox']
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage', // Necessário para ambientes como Docker/Render
+                    '--single-process' // Opcional, ajuda em alguns casos
+                ]
             });
         }
     }
