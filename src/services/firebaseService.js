@@ -92,9 +92,46 @@ class FirebaseService {
 
             await batch.commit();
             console.log(`✅ Salvos ${items.length} itens no Firebase: ${service}/${typeDate}`);
+
+            // Auto-limpeza: Deleta dados antigos (mantém só hoje)
+            await this.deleteOldData(service, type, date);
+
         } catch (error) {
             console.error('❌ Erro ao salvar no Firebase:', error.message);
             throw error;
+        }
+    }
+
+    /**
+     * Deleta dados antigos, mantendo apenas a data especificada
+     * @param {string} service - Nome do serviço
+     * @param {string} type - Tipo (movie, series, overall)
+     * @param {string} keepDate - Data para manter (YYYY-MM-DD)
+     */
+    async deleteOldData(service, type, keepDate) {
+        try {
+            const serviceRef = this.db.doc(`top10-streaming/${service}`);
+            const collections = await serviceRef.listCollections();
+
+            const toDelete = collections
+                .map(col => col.id)
+                .filter(id => id.startsWith(`${type}-`) && id !== `${type}-${keepDate}`);
+
+            for (const oldTypeDate of toDelete) {
+                const collectionRef = this.db.collection(`top10-streaming/${service}/${oldTypeDate}`);
+                const snapshot = await collectionRef.get();
+
+                const deleteBatch = this.db.batch();
+                snapshot.docs.forEach(doc => {
+                    deleteBatch.delete(doc.ref);
+                });
+
+                await deleteBatch.commit();
+                console.log(`🗑️ Deletada coleção antiga: ${service}/${oldTypeDate}`);
+            }
+        } catch (error) {
+            console.error(`⚠️ Erro ao deletar dados antigos de ${service}/${type}:`, error.message);
+            // Não falha o save se a limpeza falhar
         }
     }
 

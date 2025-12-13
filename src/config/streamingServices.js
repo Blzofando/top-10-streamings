@@ -31,7 +31,7 @@ export const STREAMING_SERVICES = {
 
 /**
  * Retorna a data atual no formato YYYY-MM-DD
- * Lógica especial: Antes das 5h AM (horário Brasil) usa o dia ANTERIOR
+ * Lógica especial: Antes das 8h AM (horário Brasil) usa o dia ANTERIOR
  * Isso garante que sempre haverá dados completos no FlixPatrol
  */
 export function getTodayDate() {
@@ -39,11 +39,11 @@ export function getTodayDate() {
     const now = new Date();
     const brazilTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
 
-    // Se for antes das 5h da manhã, usa o dia anterior
+    // Se for antes das 8h da manhã, usa o dia anterior
     const hour = brazilTime.getHours();
-    if (hour < 5) {
+    if (hour < 8) {
         brazilTime.setDate(brazilTime.getDate() - 1);
-        console.log(`⏰ Antes das 5h AM (Brasil) - usando dia anterior: ${brazilTime.toISOString().split('T')[0]}`);
+        console.log(`⏰ Antes das 8h AM (Brasil) - usando dia anterior: ${brazilTime.toISOString().split('T')[0]}`);
     }
 
     const year = brazilTime.getFullYear();
