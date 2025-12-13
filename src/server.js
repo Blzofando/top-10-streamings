@@ -1,6 +1,5 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import streamingRoutes from './routes/streamingRoutes.js';
 import top10Routes from './routes/top10Routes.js';
 import firebaseRoutes from './routes/firebaseRoutes.js';
 import cronRoutes from './routes/cronRoutes.js';
@@ -89,9 +88,6 @@ app.use('/api/firebase', validateApiKey, firebaseRoutes);
 
 // Cron não precisa de API key (usado pelo GitHub Actions)
 app.use('/api/cron', cronRoutes);
-
-// Rotas antigas (backward compatibility) - também protegidas
-app.use('/api', validateApiKey, streamingRoutes);
 
 // Tratamento de erros
 app.use((err, req, res, next) => {

@@ -114,9 +114,6 @@ export class StreamingController {
             tvShows       // 10 séries completas (com TMDB se enriched)
         };
 
-        // Salva no cache
-        cacheService.set(cacheKey, result);
-
         // Salva no Firebase automaticamente se solicitado
         if (saveToFirebase && enrichWithTMDB) {
             try {
