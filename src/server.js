@@ -4,6 +4,9 @@ import streamingRoutes from './routes/streamingRoutes.js';
 import top10Routes from './routes/top10Routes.js';
 import firebaseRoutes from './routes/firebaseRoutes.js';
 import cronRoutes from './routes/cronRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
+import { validateApiKey } from './middleware/apiKeyMiddleware.js';
+import { adminAuth } from './middleware/adminAuth.js';
 import { scraper } from './scrapers/flixpatrolScraper.js';
 
 dotenv.config();
@@ -15,18 +18,28 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static('public'));
 
-// CORS simples
+// CORS
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-API-Key');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
     next();
 });
 
 // Rota inicial
 app.get('/', (req, res) => {
     res.json({
-        message: '🎬 FlixPatrol API com Firebase',
-        version: '2.0.0',
+        message: '🎬 FlixPatrol API com Firebase + Auth',
+        version: '2.1.0',
+        authentication: {
+            required: true,
+            header: 'X-API-Key',
+            example: 'X-API-Key: sua_chave_aqui',
+            getKey: 'POST /api/admin/keys/generate (admin only)'
+        },
         endpoints: {
             top10: {
                 netflix: '/api/top-10/netflix',
@@ -44,6 +57,13 @@ app.get('/', (req, res) => {
                 updateExpired: '/api/cron/update-expired',
                 health: '/api/cron/health'
             },
+            admin: {
+                note: 'Endpoints administrativos - acesso restrito',
+                generateKey: 'POST /api/admin/keys/generate',
+                listKeys: 'GET /api/admin/keys/list',
+                stats: 'GET /api/admin/keys/stats',
+                revokeKey: 'DELETE /api/admin/keys/:keyId'
+            },
             legacy: {
                 note: 'Rotas antigas ainda funcionam para compatibilidade',
                 examples: ['/api/netflix', '/api/disney', '/api/hbo', '/api/prime']
@@ -60,13 +80,18 @@ app.get('/', (req, res) => {
     });
 });
 
-// Novas rotas (top-10 pattern)
-app.use('/api/top-10', top10Routes);
-app.use('/api/firebase', firebaseRoutes);
+// Admin routes (sem validação por enquanto - ADICIONE AUTENTICAÇÃO EM PRODUÇÃO!)
+app.use('/api/admin', adminRoutes);
+
+// Rotas protegidas por API key
+app.use('/api/top-10', validateApiKey, top10Routes);
+app.use('/api/firebase', validateApiKey, firebaseRoutes);
+
+// Cron não precisa de API key (usado pelo GitHub Actions)
 app.use('/api/cron', cronRoutes);
 
-// Rotas antigas (backward compatibility)
-app.use('/api', streamingRoutes);
+// Rotas antigas (backward compatibility) - também protegidas
+app.use('/api', validateApiKey, streamingRoutes);
 
 // Tratamento de erros
 app.use((err, req, res, next) => {

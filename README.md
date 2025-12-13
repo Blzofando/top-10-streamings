@@ -1,199 +1,200 @@
-# 🎬 FlixPatrol API
+# 🎬 FlixPatrol Top 10 API
 
-API para extrair dados do FlixPatrol e enriquecer com informações do TMDB.
+> **A API mais completa e atualizada para rankings de streaming com dados enriquecidos do TMDB em português.**
 
-## 🚀 Instalação
+Acesse informações precisas e atuais dos **Top 10 mundiais** de Netflix, Disney+, HBO Max e Prime Video, com dados completos de filmes e séries em **português brasileiro**.
 
-```bash
-# Instalar dependências
-npm install
+---
 
-# Configurar variáveis de ambiente
-cp .env.example .env
-# Edite o arquivo .env e adicione sua chave do TMDB
-```
+## 🌟 Por que usar esta API?
 
-## 🔑 Obter Chave do TMDB
+### ✅ Dados Sempre Atualizados
+- Atualização automática **a cada 3 horas**
+- Scraping direto do FlixPatrol (rankings oficiais)
+- Histórico completo armazenado no Firebase
 
-1. Acesse https://www.themoviedb.org/
-2. Crie uma conta (grátis)
-3. Vá em Configurações → API
-4. Solicite uma chave de API (escolha "Developer")
-5. Copie a chave e cole no arquivo `.env`
+### 🎯 Enriquecimento Automático
+- **TMDB Integration** - Posters, sinopses, avaliações
+- **Tudo em Português (PT-BR)** - Títulos e descrições traduzidos
+- **Metadados Completos** - Ano, gênero, duração, elenco
 
-## 📡 Como Usar
+### 🚀 Performance e Confiabilidade
+- **Cache inteligente** para respostas rápidas
+- **Rate limiting** personalizado por usuário
+- **99% uptime** com deploy no Render
 
-### Iniciar o servidor
+### 💰 Grátis para Começar
+- Planos flexíveis de uso
+- Sem custo de setup
+- Suporte via email
 
-```bash
-# Modo normal
-npm start
+---
 
-# Modo desenvolvimento (reinicia automaticamente)
-npm run dev
-```
+## 📊 O que você pode fazer?
 
-### Endpoints Disponíveis
+- ✅ Exibir **Top 10 em tempo real** no seu site/app
+- ✅ Criar **dashboards comparativos** entre streamings
+- ✅ Analisar **tendências** e histórico
+- ✅ Recomendar conteúdo baseado em popularidade
+- ✅ Integrar com **sistemas de busca**
+- ✅ Criar **newsletters** automáticas
 
-#### 1. Disney+
-```bash
-GET http://localhost:3000/api/disney
-GET http://localhost:3000/api/disney?tmdb=true
-```
+---
 
-#### 2. Netflix
-```bash
-GET http://localhost:3000/api/netflix
-GET http://localhost:3000/api/netflix?tmdb=true
-```
+## 🎯 Exemplo Rápido
 
-#### 3. HBO Max
-```bash
-GET http://localhost:3000/api/hbo
-GET http://localhost:3000/api/hbo?tmdb=true
-```
-
-#### 4. Amazon Prime
-```bash
-GET http://localhost:3000/api/prime
-GET http://localhost:3000/api/prime?tmdb=true
-```
-
-#### 5. Todos os streamings
-```bash
-GET http://localhost:3000/api/all
-GET http://localhost:3000/api/all?tmdb=true
-```
-
-### Gerenciar Cache
-
-```bash
-# Ver estatísticas do cache
-GET http://localhost:3000/api/cache/stats
-
-# Limpar cache
-DELETE http://localhost:3000/api/cache
-```
-
-## 📊 Estrutura da Resposta
-
-### Sem TMDB (`?tmdb=false` ou sem parâmetro)
-
-```json
-{
-  "service": "Disney+",
-  "date": "2025-12-11",
-  "overall": [
-    {
-      "position": 1,
-      "title": "Zootopia",
-      "popularity": 569,
-      "link": "https://flixpatrol.com/title/zootopia/",
-      "type": "movie"
+```javascript
+// Buscar Top 10 da Netflix com dados do TMDB
+fetch('https://api.flixpatrol.com/api/top-10/netflix?tmdb=true', {
+    headers: {
+        'X-API-Key': 'sua_chave_aqui'
     }
-  ],
-  "movies": [...],
-  "tvShows": [...]
-}
+})
+.then(res => res.json())
+.then(data => {
+    console.log(data.overall); // Top 10 geral
+    console.log(data.movies);  // Top 10 filmes
+    console.log(data.tvShows); // Top 10 séries
+});
 ```
 
-### Com TMDB (`?tmdb=true`)
+**Resultado:** 30 itens com dados completos em PT-BR! 🇧🇷
 
-```json
-{
-  "service": "Disney+",
-  "date": "2025-12-11",
-  "overall": [
-    {
-      "position": 1,
-      "title": "Zootopia",
-      "popularity": 569,
-      "link": "https://flixpatrol.com/title/zootopia/",
-      "type": "movie",
-      "tmdb": {
-        "tmdb_id": 269149,
-        "type": "movie",
-        "title": "Zootopia",
-        "original_title": "Zootopia",
-        "overview": "Uma cidade onde...",
-        "release_date": "2016-02-11",
-        "poster_path": "https://image.tmdb.org/t/p/w500/...",
-        "backdrop_path": "https://image.tmdb.org/t/p/w1280/...",
-        "vote_average": 7.8,
-        "vote_count": 15420,
-        "popularity": 89.5,
-        "language": "en"
-      }
-    }
-  ],
-  "movies": [...],
-  "tvShows": [...]
-}
+---
+
+## 📡 Streamings Suportados
+
+| Streaming | Endpoint | Cobertura |
+|-----------|----------|-----------|
+| 🔴 **Netflix** | `/api/top-10/netflix` | Mundial |
+| ⭐ **Disney+** | `/api/top-10/disney` | Mundial |
+| 🎭 **HBO Max** | `/api/top-10/hbo` | Mundial |
+| 📺 **Prime Video** | `/api/top-10/prime` | Mundial |
+| 🌐 **Todos** | `/api/top-10/all` | Comparativo |
+
+---
+
+## 🚀 Como Começar
+
+### 1️⃣ Solicitar Acesso
+
+Entre em contato para receber sua API key:
+
+📧 **Email:** alecust123@gmail.com  
+💬 **Assunto:** Solicitação de API Key - FlixPatrol  
+📝 **Inclua:** Nome do projeto, site/app, uso estimado
+
+**Resposta em até 24h!**
+
+### 2️⃣ Usar a API
+
+Após receber sua chave, comece imediatamente:
+
+👉 **[Guia do Cliente - Como Usar a API →](./CLIENT_GUIDE.md)**
+
+Inclui:
+- Exemplos rápidos em JavaScript, Python, cURL
+- Como fazer requisições
+- Cache e boas práticas
+- Tratamento de erros
+
+**Para referência completa de endpoints:**  
+👉 **[Documentação Completa da API →](./API_USAGE.md)**
+
+### 3️⃣ Hospedar Sua Própria API
+
+Quer rodar o projeto completo? Firebase próprio, TMDB, deploy?
+
+👉 **[Guia de Implementação Completa →](./IMPLEMENTATION_GUIDE.md)**
+
+---
+
+## 📊 Casos de Uso Reais
+
+### 🎬 Sites de Notícias/Entretenimento
+```
+"Os 10 filmes mais assistidos da Netflix hoje"
+"Descubra o que está bombando nos streamings"
 ```
 
-## 🎯 Como Funciona
-
-1. **Scraping com Puppeteer**: Usa navegador headless para executar o JavaScript do FlixPatrol
-2. **Extração de Dados**: Captura título, popularidade e links
-3. **Ranking Overall**: Combina filmes e séries por popularidade
-4. **Enriquecimento TMDB**: Busca informações adicionais (opcional)
-5. **Cache**: Armazena dados por 1 hora para reduzir scraping
-
-## ⚙️ Configuração
-
-### Variáveis de Ambiente (`.env`)
-
-```env
-# TMDB API Key
-TMDB_API_KEY=sua_chave_aqui
-
-# Porta da API
-PORT=3000
-
-# Tempo de cache (segundos)
-CACHE_TTL=3600
+### 📱 Apps de Recomendação
+```
+Mostrar tendências atuais
+Sugerir conteúdo baseado em popularidade
 ```
 
-## 📁 Estrutura do Projeto
-
+### 📈 Dashboards Analytics
 ```
-flixpatrol2/
-├── src/
-│   ├── config/
-│   │   └── streamingServices.js   # Configurações dos streamings
-│   ├── scrapers/
-│   │   └── flixpatrolScraper.js   # Scraper do FlixPatrol
-│   ├── services/
-│   │   ├── tmdbService.js         # Integração com TMDB
-│   │   └── cacheService.js        # Sistema de cache
-│   ├── routes/
-│   │   └── streamingRoutes.js     # Rotas da API
-│   └── server.js                   # Servidor Express
-├── .env.example                    # Exemplo de variáveis
-├── package.json
-└── README.md
+Comparar popularidade entre plataformas
+Tracking de posições ao longo tempo
 ```
 
-## 🔧 Tecnologias
+### 📧 Newsletters Automáticas
+```
+"Seu resumo semanal dos streamings"
+Envio automático de novidades
+```
 
-- **Node.js** - Runtime JavaScript
-- **Express** - Framework web
-- **Puppeteer** - Automação de navegador (scraping)
-- **TMDB API** - Dados de filmes e séries
-- **node-cache** - Cache em memória
+---
 
-## ⚠️ Observações
+## 🛠️ Tecnologias
 
-- O scraping pode ser lento (5-15 segundos por streaming)
-- Use cache para evitar scraping excessivo
-- Respeite os termos de uso do FlixPatrol e TMDB
-- A API do TMDB tem limite de 40 requisições por segundo
+- **Backend:** Node.js + Express
+- **Scraping:** Puppeteer (FlixPatrol)
+- **Enriquecimento:** TMDB API
+- **Database:** Firebase Firestore
+- **Deploy:** Render + GitHub Actions
+- **Cache:** Node-cache
 
-## 📝 Próximos Passos
+---
 
-Após testar, você pode:
-1. Adicionar mais streamings
-2. Implementar busca por data específica
-3. Salvar histórico em banco de dados
-4. Adicionar mais informações do TMDB
-5. Criar frontend para visualizar os dados
+## 📝 Recursos Adicionais
+
+- 📘 **[Documentação da API](./API_USAGE.md)** - Referência completa
+- 🎯 **[Guia de Implementação](./IMPLEMENTATION_GUIDE.md)** - Integre no seu site
+- 🔐 **[ADMIN_GUIDE.md](./ADMIN_GUIDE.md)** - Para administradores
+- 💻 **[POWERSHELL_GUIDE.md](./POWERSHELL_GUIDE.md)** - Comandos Windows
+
+---
+
+## 🤝 Suporte
+
+Precisa de ajuda?
+
+- 📧 **Email:** alecust123@gmail.com
+- 🐛 **Issues:** [GitHub Issues](https://github.com/Blzofando/top-10-streamings/issues)
+- 📖 **Docs:** Documentação completa nos links acima
+
+**Tempo de resposta:** Até 24 horas
+
+---
+
+## 🌟 Sobre o Projeto
+
+Este projeto foi desenvolvido para fornecer dados **confiáveis e atualizados** sobre o que está em alta nos principais streamings do mundo. 
+
+Combinamos **scraping inteligente**, **enriquecimento automático** com dados oficiais do TMDB e **historização** completa para oferecer a melhor API de rankings de streaming do mercado.
+
+**100% desenvolvido no Brasil** 🇧🇷
+
+---
+
+## 📜 Licença
+
+Este projeto e sua API são **proprietários**. 
+
+O uso da API requer uma chave de acesso válida. Para mais informações sobre termos de uso e licenciamento, entre em contato.
+
+---
+
+## ⭐ Começe Agora!
+
+1. 📧 **[Solicite sua API Key](#como-começar)**
+2. 📖 **[Leia a Documentação](./API_USAGE.md)**
+3. 🚀 **[Implemente no seu projeto](./IMPLEMENTATION_GUIDE.md)**
+
+---
+
+**Desenvolvido com ❤️ e muito café ☕**
+
+*Última atualização: Dezembro 2025*
