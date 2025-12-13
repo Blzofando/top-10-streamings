@@ -12,13 +12,14 @@ export class StreamingController {
      * @param {string} service - Nome do serviço (netflix, hbo, disney, prime, apple)
      * @param {boolean} enrichWithTMDB - Se deve enriquecer com dados do TMDB
      * @param {boolean} saveToFirebase - Se deve salvar automaticamente no Firebase
+     * @param {boolean} forceUpdate - Se deve forçar scraping ignorando Firebase
      * @returns {Promise<Object>} Dados do top 10
      */
-    async getTop10(service, enrichWithTMDB = false, saveToFirebase = true) {
+    async getTop10(service, enrichWithTMDB = false, saveToFirebase = true, forceUpdate = false) {
         const today = getTodayDate();
 
         // 1. Verifica Firebase primeiro (se não for forçar scraping)
-        if (saveToFirebase) {
+        if (saveToFirebase && !forceUpdate) {
             console.log(`📊 Verificando Firebase para ${service} - ${today}...`);
             try {
                 // Busca os 3 tipos separadamente

@@ -108,7 +108,8 @@ export class CronController {
             if (mostOutdated.hours >= 3) {
                 console.log(`\n🔄 [${mostOutdated.service}] INICIANDO atualização...`);
 
-                await streamingController.getTop10(mostOutdated.service, true, true);
+                // FORÇA scraping mesmo tendo dados (forceUpdate=true)
+                await streamingController.getTop10(mostOutdated.service, true, true, true);
 
                 results.updated = mostOutdated.service;
                 results.skipped = services.filter(s => s !== mostOutdated.service);
