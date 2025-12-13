@@ -1,6 +1,5 @@
 import { scraper } from '../scrapers/flixpatrolScraper.js';
 import { tmdbService } from '../services/tmdbService.js';
-import { cacheService } from '../services/cacheService.js';
 import { firebaseService } from '../services/firebaseService.js';
 import { STREAMING_SERVICES, getTodayDate } from '../config/streamingServices.js';
 
@@ -16,22 +15,36 @@ export class StreamingController {
      * @returns {Promise<Object>} Dados do top 10
      */
     async getTop10(service, enrichWithTMDB = false, saveToFirebase = true) {
-        const cacheKey = `${service}_${getTodayDate()}_${enrichWithTMDB ? 'enriched' : 'raw'}`;
+        const today = getTodayDate();
 
-        // Verifica cache
-        const cached = cacheService.get(cacheKey);
-        if (cached) {
-            console.log('📦 Dados do cache');
-            return cached;
+        // 1. Verifica Firebase primeiro (se não for forçar scraping)
+        if (saveToFirebase) {
+            console.log(`📊 Verificando Firebase para ${service} - ${today}...`);
+            try {
+                const firebaseData = await firebaseService.getLatestTop10(service);
+                if (firebaseData && firebaseData.date === today) {
+                    console.log(`✅ Dados encontrados no Firebase (${today})`);
+                    return {
+                        service: STREAMING_SERVICES[service].name,
+                        date: firebaseData.date,
+                        overall: firebaseData.overall || [],
+                        movies: firebaseData.movies || [],
+                        tvShows: firebaseData.series || []
+                    };
+                }
+            } catch (error) {
+                console.log(`⚠️ Firebase não tem dados atuais: ${error.message}`);
+            }
         }
 
-        // Busca dados
+        // 2. Se não tem no Firebase ou é scraping forçado, faz scraping
+        console.log(`🌐 Iniciando scraping do FlixPatrol...`);
         const streamingConfig = STREAMING_SERVICES[service];
         if (!streamingConfig) {
             throw new Error(`Serviço de streaming "${service}" não encontrado`);
         }
 
-        const url = streamingConfig.urlPattern(getTodayDate());
+        const url = streamingConfig.urlPattern(today);
         const data = await scraper.scrapeTop10(url);
 
         console.log(`📊 Scraping retornou: ${data.movies.length} filmes, ${data.tvShows.length} séries`);
