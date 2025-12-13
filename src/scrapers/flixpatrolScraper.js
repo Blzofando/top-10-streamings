@@ -54,10 +54,10 @@ export class FlixPatrolScraper {
         try {
             console.log(`📡 Acessando: ${url} `);
 
-            // Acessa a página e espera carregar
+            // Acessa a página e espera carregar (aumentado para 3 minutos)
             await page.goto(url, {
                 waitUntil: 'networkidle2',
-                timeout: 120000
+                timeout: 180000  // 3 minutos - FlixPatrol pode estar lento
             });
 
             // Espera as tabelas carregarem
