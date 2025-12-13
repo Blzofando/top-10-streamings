@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { firebaseService } from './firebaseService.js';
+import admin from 'firebase-admin';
 
 /**
  * Serviço para gerenciar API Keys
@@ -112,9 +113,9 @@ class ApiKeyService {
         const docRef = firebaseService.db.collection(this.collection).doc(key);
 
         await docRef.update({
-            requestCount: firebaseService.db.FieldValue.increment(1),
+            requestCount: admin.firestore.FieldValue.increment(1),
             lastUsedAt: new Date().toISOString(),
-            [`usageByHour.${currentHour}`]: firebaseService.db.FieldValue.increment(1)
+            [`usageByHour.${currentHour}`]: admin.firestore.FieldValue.increment(1)
         });
     }
 
