@@ -21,15 +21,24 @@ export class StreamingController {
         if (saveToFirebase) {
             console.log(`📊 Verificando Firebase para ${service} - ${today}...`);
             try {
-                const firebaseData = await firebaseService.getLatestTop10(service);
-                if (firebaseData && firebaseData.date === today) {
+                // Busca os 3 tipos separadamente
+                const [overallData, moviesData, seriesData] = await Promise.all([
+                    firebaseService.getTop10(service, 'overall', today),
+                    firebaseService.getTop10(service, 'movie', today),
+                    firebaseService.getTop10(service, 'series', today)
+                ]);
+
+                // Se tem dados completos, retorna
+                if (overallData && overallData.length > 0 && moviesData && seriesData) {
                     console.log(`✅ Dados encontrados no Firebase (${today})`);
+                    console.log(`📊 Overall: ${overallData.length}, Movies: ${moviesData.length}, Series: ${seriesData.length}`);
+
                     return {
                         service: STREAMING_SERVICES[service].name,
-                        date: firebaseData.date,
-                        overall: firebaseData.overall || [],
-                        movies: firebaseData.movies || [],
-                        tvShows: firebaseData.series || []
+                        date: today,
+                        overall: overallData,
+                        movies: moviesData,
+                        tvShows: seriesData
                     };
                 }
             } catch (error) {
