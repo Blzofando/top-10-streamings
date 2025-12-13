@@ -106,9 +106,23 @@ export class StreamingController {
         // Cria ranking "overall" baseado em popularidade (combina movies + tvShows)
         console.log('📊 Criando ranking overall a partir dos 20 itens enriquecidos...');
         const combined = [...movies, ...tvShows];
+
+        // Ordena por popularidade (se disponível) ou mantém ordem original
         const overall = combined
-            .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+            .sort((a, b) => {
+                // Se ambos têm popularity, usa
+                if (a.popularity && b.popularity) {
+                    return b.popularity - a.popularity;
+                }
+                // Se só um tem, prioriza o que tem
+                if (a.popularity) return -1;
+                if (b.popularity) return 1;
+                // Se nenhum tem, mantém ordem (filmes primeiro)
+                return 0;
+            })
             .slice(0, 10);
+
+        console.log(`✅ Overall criado: ${overall.length} itens`);
 
         const result = {
             service: streamingConfig.name,
