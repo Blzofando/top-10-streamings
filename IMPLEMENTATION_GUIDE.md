@@ -247,12 +247,12 @@ PORT=3000
 
 1. **Create Web Service**
 2. Aguarde build (~5 min)
-3. Copie a URL: `https://seu-app.onrender.com`
+3. Copie a URL: `https://top-10-streamings.onrender.com`
 
 ### 6.5 Testar Deploy
 
 ```bash
-curl https://seu-app.onrender.com
+curl https://top-10-streamings.onrender.com
 ```
 
 Deve retornar a documentação da API!
@@ -267,7 +267,7 @@ Deve retornar a documentação da API!
 2. **Secrets and variables** → **Actions**
 3. **New repository secret:**
    - Name: `API_URL`
-   - Value: `https://seu-app.onrender.com`
+   - Value: `https://top-10-streamings.onrender.com`
 4. **Add secret**
 
 ### 7.2 Ativar Workflow

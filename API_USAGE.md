@@ -19,7 +19,7 @@ X-API-Key: sua_chave_aqui
 ## 📡 Base URL
 
 ```
-https://seu-app.onrender.com
+https://top-10-streamings.onrender.com
 ```
 
 ---

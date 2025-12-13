@@ -30,7 +30,7 @@ X-API-Key: sua_chave_recebida_por_email
 
 ```javascript
 const apiKey = 'sua_chave_aqui';
-const apiUrl = 'https://flixpatrol-api.onrender.com';
+const apiUrl = 'https://top-10-streamings.onrender.com';
 
 fetch(`${apiUrl}/api/top-10/netflix?tmdb=true`, {
     headers: {
@@ -50,7 +50,7 @@ import requests
 
 headers = {'X-API-Key': 'sua_chave_aqui'}
 response = requests.get(
-    'https://flixpatrol-api.onrender.com/api/top-10/netflix?tmdb=true',
+    'https://top-10-streamings.onrender.com/api/top-10/netflix?tmdb=true',
     headers=headers
 )
 
@@ -62,7 +62,7 @@ print(f"Top #1: {data['overall'][0]['tmdb']['title']}")
 
 ```bash
 curl -H "X-API-Key: sua_chave" \
-  "https://flixpatrol-api.onrender.com/api/top-10/netflix?tmdb=true"
+  "https://top-10-streamings.onrender.com/api/top-10/netflix?tmdb=true"
 ```
 
 ---
@@ -105,7 +105,7 @@ Ver documentação completa: **[API_USAGE.md](./API_USAGE.md)**
 
     <script>
         const API_KEY = 'sua_chave_aqui';
-        const API_URL = 'https://flixpatrol-api.onrender.com/api/top-10/netflix?tmdb=true';
+        const API_URL = 'https://top-10-streamings.onrender.com/api/top-10/netflix?tmdb=true';
 
         fetch(API_URL, {
             headers: { 'X-API-Key': API_KEY }
