@@ -47,7 +47,7 @@ npm install
 6. Aceite termos
 7. **Copie a API Key (v3 auth)**
 
-Exemplo: `f75b3a1c8198ef984e4daa01a79a9eed`
+Exemplo: `f75b3a1c8198ef984e4daa0xxxxxxxxx`
 
 ---
 
@@ -57,7 +57,7 @@ Exemplo: `f75b3a1c8198ef984e4daa01a79a9eed`
 
 1. Acesse: https://console.firebase.google.com/
 2. **Adicionar projeto**
-3. Nome: `flixpatrol-api` (ou seu nome)
+3. Nome: `seusite-api` (ou seu nome)
 4. **Desabilitar** Google Analytics (opcional)
 5. **Criar projeto**
 
@@ -79,10 +79,10 @@ Exemplo: `f75b3a1c8198ef984e4daa01a79a9eed`
 
 ```json
 {
-  "project_id": "flixpatrol-api",
+  "project_id": "seusite-api",
   "private_key_id": "abc123...",
   "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
-  "client_email": "firebase-adminsdk-xxx@flixpatrol-api.iam.gserviceaccount.com",
+  "client_email": "firebase-adminsdk-xxx@seusite-api.iam.gserviceaccount.com",
   "client_id": "123456789...",
   "client_x509_cert_url": "https://www.googleapis.com/robot/..."
 }
@@ -98,13 +98,13 @@ Crie o arquivo na raiz do projeto:
 
 ```env
 # TMDB API
-TMDB_API_KEY=f75b3a1c8198ef984e4daa01a79a9eed
+TMDB_API_KEY=f75b3a1c8198ef984e4daa0xxxxxxxxx
 
 # Firebase (copie do JSON baixado)
-FIREBASE_PROJECT_ID=flixpatrol-api
+FIREBASE_PROJECT_ID=seusite-api
 FIREBASE_PRIVATE_KEY_ID=abc123def456...
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgk...\n-----END PRIVATE KEY-----\n"
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxx@flixpatrol-api.iam.gserviceaccount.com
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxx@seusite-api.iam.gserviceaccount.com
 FIREBASE_CLIENT_ID=123456789012345
 FIREBASE_CLIENT_X509_CERT_URL=https://www.googleapis.com/robot/v1/metadata/x509/...
 
@@ -247,12 +247,12 @@ PORT=3000
 
 1. **Create Web Service**
 2. Aguarde build (~5 min)
-3. Copie a URL: `https://top-10-streamings.onrender.com`
+3. Copie a URL: `https://seu-app.onrender.com`
 
 ### 6.5 Testar Deploy
 
 ```bash
-curl https://top-10-streamings.onrender.com
+curl https://seu-app.onrender.com
 ```
 
 Deve retornar a documentação da API!
@@ -267,7 +267,7 @@ Deve retornar a documentação da API!
 2. **Secrets and variables** → **Actions**
 3. **New repository secret:**
    - Name: `API_URL`
-   - Value: `https://top-10-streamings.onrender.com`
+   - Value: `https://seu-app.onrender.com`
 4. **Add secret**
 
 ### 7.2 Ativar Workflow

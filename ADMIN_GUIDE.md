@@ -7,14 +7,14 @@ Todos os endpoints `/api/admin/*` agora requerem **senha de administrador**.
 ### Header Obrigatório
 
 ```
-X-Admin-Secret: @#Chopuchai.20
+X-Admin-Secret: XXXXXXX
 ```
 
 ## PowerShell - Gerar API Key
 
 ```powershell
 $headers = @{
-    "X-Admin-Secret" = "@#Chopuchai.20"
+    "X-Admin-Secret" = "xxxxxxx"
     "Content-Type" = "application/json"
 }
 
@@ -33,7 +33,7 @@ Invoke-RestMethod -Method Post `
 ## PowerShell - Listar Keys
 
 ```powershell
-$headers = @{ "X-Admin-Secret" = "@#Chopuchai.20" }
+$headers = @{ "X-Admin-Secret" = "XXXXXXX" }
 
 Invoke-RestMethod -Uri "http://localhost:3000/api/admin/keys/list" -Headers $headers
 ```
@@ -41,7 +41,7 @@ Invoke-RestMethod -Uri "http://localhost:3000/api/admin/keys/list" -Headers $hea
 ## PowerShell - Ver Estatísticas
 
 ```powershell
-$headers = @{ "X-Admin-Secret" = "@#Chopuchai.20" }
+$headers = @{ "X-Admin-Secret" = "XXXXXXX" }
 
 Invoke-RestMethod -Uri "http://localhost:3000/api/admin/keys/stats" -Headers $headers
 ```
@@ -49,7 +49,7 @@ Invoke-RestMethod -Uri "http://localhost:3000/api/admin/keys/stats" -Headers $he
 ## PowerShell - Revogar Key
 
 ```powershell
-$headers = @{ "X-Admin-Secret" = "@#Chopuchai.20" }
+$headers = @{ "X-Admin-Secret" = "XXXXXXX" }
 
 Invoke-RestMethod -Method Delete `
   -Uri "http://localhost:3000/api/admin/keys/abc123..." `
@@ -61,21 +61,21 @@ Invoke-RestMethod -Method Delete `
 ```bash
 # Gerar key
 curl -X POST http://localhost:3000/api/admin/keys/generate \
-  -H "X-Admin-Secret: @#Chopuchai.20" \
+  -H "X-Admin-Secret: xxxxxxxx" \
   -H "Content-Type: application/json" \
-  -d '{"name":"Usuario","email":"email@example.com","rateLimit":100000}'
+  -d '{"name":"teste","email@teste.com":"email@example.com","rateLimit":100000}'
 
 # Listar keys
-curl -H "X-Admin-Secret: @#Chopuchai.20" \
+curl -H "X-Admin-Secret: XXXXXXX" \
   http://localhost:3000/api/admin/keys/list
 
 # Stats
-curl -H "X-Admin-Secret: @#Chopuchai.20" \
+curl -H "X-Admin-Secret: XXXXXXX" \
   http://localhost:3000/api/admin/keys/stats
 
 # Revogar
 curl -X DELETE \
-  -H "X-Admin-Secret: @#Chopuchai.20" \
+  -H "X-Admin-Secret: XXXXXXX" \
   http://localhost:3000/api/admin/keys/abc123...
 ```
 

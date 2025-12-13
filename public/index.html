@@ -4,96 +4,233 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎬 FlixPatrol Top 10 Viewer</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>FlixPatrol Top 10 API - Rankings Mundiais de Streaming</title>
+    <meta name="description"
+        content="API completa de rankings Top 10 mundiais de streamings com dados do TMDB em português">
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <div class="container">
-        <header>
-            <h1>🎬 FlixPatrol Top 10</h1>
-            <p class="subtitle">Visualize os rankings dos principais streamings</p>
-
-            <div class="global-actions">
-                <button class="action-btn simple" onclick="loadAll(false)">
-                    🌐 Buscar Todos (Simples)
-                </button>
-                <button class="action-btn match" onclick="loadAll(true)">
-                    🎬 Buscar Todos (Com Match)
-                </button>
-                <button class="action-btn danger" onclick="clearCache()">
-                    🗑️ Limpar Cache
-                </button>
-            </div>
-        </header>
-
-        <div class="streaming-grid">
-            <!-- Disney+ -->
-            <div class="streaming-card" id="disney-card">
-                <div class="streaming-header disney">
-                    <h2>Disney+</h2>
-                </div>
-                <div class="content" id="disney-content">
-                    <button class="load-btn" onclick="loadStreaming('disney')">
-                        Carregar Top 10
-                    </button>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="glitch" data-text="FlixPatrol Top 10 API">
+                    🎬 FlixPatrol Top 10 API
+                </h1>
+                <p class="subtitle">
+                    A API mais completa de rankings mundiais de streaming<br>
+                    com dados enriquecidos do TMDB em português
+                </p>
+                <div class="cta-buttons">
+                    <a href="#solicitar" class="btn btn-primary">
+                        <span>Solicitar Acesso</span>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M7 10L10 13L13 10" stroke="currentColor" stroke-width="2" />
+                            <path d="M10 3V13" stroke="currentColor" stroke-width="2" />
+                        </svg>
+                    </a>
+                    <a href="https://github.com/Blzofando/top-10-streamings" class="btn btn-secondary" target="_blank">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <path
+                                d="M10 0C4.477 0 0 4.477 0 10c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0110 4.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C17.137 18.163 20 14.418 20 10c0-5.523-4.477-10-10-10z" />
+                        </svg>
+                        <span>Ver Código</span>
+                    </a>
                 </div>
             </div>
 
-            <!-- Netflix -->
-            <div class="streaming-card" id="netflix-card">
-                <div class="streaming-header netflix">
-                    <h2>Netflix</h2>
-                </div>
-                <div class="content" id="netflix-content">
-                    <button class="load-btn" onclick="loadStreaming('netflix')">
-                        Carregar Top 10
-                    </button>
-                </div>
-            </div>
-
-            <!-- HBO Max -->
-            <div class="streaming-card" id="hbo-card">
-                <div class="streaming-header hbo">
-                    <h2>HBO Max</h2>
-                </div>
-                <div class="content" id="hbo-content">
-                    <button class="load-btn" onclick="loadStreaming('hbo')">
-                        Carregar Top 10
-                    </button>
-                </div>
-            </div>
-
-            <!-- Amazon Prime -->
-            <div class="streaming-card" id="prime-card">
-                <div class="streaming-header prime">
-                    <h2>Prime Video</h2>
-                </div>
-                <div class="content" id="prime-content">
-                    <button class="load-btn" onclick="loadStreaming('prime')">
-                        Carregar Top 10
-                    </button>
+            <div class="hero-visual">
+                <div class="streaming-cards">
+                    <div class="card netflix" data-aos="fade-left" data-aos-delay="0">
+                        <div class="card-icon">🔴</div>
+                        <div class="card-name">Netflix</div>
+                    </div>
+                    <div class="card disney" data-aos="fade-left" data-aos-delay="100">
+                        <div class="card-icon">⭐</div>
+                        <div class="card-name">Disney+</div>
+                    </div>
+                    <div class="card hbo" data-aos="fade-left" data-aos-delay="200">
+                        <div class="card-icon">🎭</div>
+                        <div class="card-name">HBO Max</div>
+                    </div>
+                    <div class="card prime" data-aos="fade-left" data-aos-delay="300">
+                        <div class="card-icon">📺</div>
+                        <div class="card-name">Prime Video</div>
+                    </div>
                 </div>
             </div>
         </div>
+    </section>
 
-        <!-- Logs Section -->
-        <div class="logs-container">
-            <h3>📑 Logs de Processamento</h3>
-            <div id="logs-content" class="logs-content"></div>
+    <!-- Features -->
+    <section class="features">
+        <div class="container">
+            <h2>Por que usar?</h2>
+            <div class="features-grid">
+                <div class="feature-card" data-aos="fade-up">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Atualização Automática</h3>
+                    <p>Dados atualizados a cada 3 horas via GitHub Actions</p>
+                </div>
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="100">
+                    <div class="feature-icon">🎯</div>
+                    <h3>TMDB em PT-BR</h3>
+                    <p>Títulos, sinopses, posters e metadados em português</p>
+                </div>
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="200">
+                    <div class="feature-icon">🚀</div>
+                    <h3>Performance</h3>
+                    <p>Cache inteligente e rate limiting personalizado</p>
+                </div>
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="300">
+                    <div class="feature-icon">📊</div>
+                    <h3>Histórico Completo</h3>
+                    <p>Acesse rankings de datas anteriores via Firebase</p>
+                </div>
+            </div>
         </div>
-    </div>
+    </section>
 
-    <!-- Modal para o carrossel -->
-    <div id="carousel-modal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2 id="modal-title"></h2>
-            <div class="carousel" id="carousel"></div>
+    <!-- Example -->
+    <section class="example">
+        <div class="container">
+            <h2>Exemplo de Uso</h2>
+            <div class="code-example">
+                <div class="code-header">
+                    <span class="code-lang">JavaScript</span>
+                    <button class="copy-btn" onclick="copyCode()">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <rect x="5" y="5" width="8" height="8" stroke="currentColor" stroke-width="2" />
+                            <path d="M3 11V3H11" stroke="currentColor" stroke-width="2" />
+                        </svg>
+                        Copiar
+                    </button>
+                </div>
+                <pre id="codeBlock"><code>fetch('https://top-10-streamings.onrender.com/api/top-10/netflix?tmdb=true', {
+    headers: {
+        'X-API-Key': 'sua_chave_aqui'
+    }
+})
+.then(res => res.json())
+.then(data => {
+    console.log('Top 10:', data.overall);
+    // 30 itens retornados: overall, movies, tvShows
+});</code></pre>
+            </div>
+
+            <div class="response-preview">
+                <h3>Resposta da API</h3>
+                <div class="json-viewer">
+                    <div class="json-item">
+                        <span class="json-key">"service"</span>: <span class="json-string">"Netflix"</span>,
+                    </div>
+                    <div class="json-item">
+                        <span class="json-key">"date"</span>: <span class="json-string">"2025-12-12"</span>,
+                    </div>
+                    <div class="json-item">
+                        <span class="json-key">"overall"</span>: [
+                        <div class="json-nested">
+                            {<br>
+                            &nbsp;&nbsp;<span class="json-key">"position"</span>: <span
+                                class="json-number">1</span>,<br>
+                            &nbsp;&nbsp;<span class="json-key">"title"</span>: <span
+                                class="json-string">"Exemplo"</span>,<br>
+                            &nbsp;&nbsp;<span class="json-key">"tmdb"</span>: { ... }<br>
+                            }
+                        </div>
+                        ]
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
+    </section>
 
-    <script src="app.js"></script>
+    <!-- Endpoints -->
+    <section class="endpoints">
+        <div class="container">
+            <h2>Endpoints Disponíveis</h2>
+            <div class="endpoints-list">
+                <div class="endpoint-item" data-aos="zoom-in">
+                    <span class="method get">GET</span>
+                    <code>/api/top-10/netflix</code>
+                    <p>Top 10 completo (overall + filmes + séries)</p>
+                </div>
+                <div class="endpoint-item" data-aos="zoom-in" data-aos-delay="50">
+                    <span class="method get">GET</span>
+                    <code>/api/top-10/netflix/movies</code>
+                    <p>Apenas os 10 filmes</p>
+                </div>
+                <div class="endpoint-item" data-aos="zoom-in" data-aos-delay="100">
+                    <span class="method get">GET</span>
+                    <code>/api/top-10/netflix/series</code>
+                    <p>Apenas as 10 séries</p>
+                </div>
+                <div class="endpoint-item" data-aos="zoom-in" data-aos-delay="150">
+                    <span class="method get">GET</span>
+                    <code>/api/top-10/all</code>
+                    <p>Todos os 4 streamings de uma vez</p>
+                </div>
+            </div>
+            <a href="https://github.com/Blzofando/top-10-streamings/blob/main/API_USAGE.md" class="btn btn-outline"
+                target="_blank">
+                Ver Documentação Completa
+            </a>
+        </div>
+    </section>
+
+    <!-- Contact / CTA -->
+    <section class="cta" id="solicitar">
+        <div class="container">
+            <h2>Pronto para começar?</h2>
+            <p>Entre em contato para receber sua API key</p>
+
+            <div class="contact-methods">
+                <a href="mailto:alecust123@gmail.com?subject=Solicitação de API Key - FlixPatrol" class="contact-card">
+                    <div class="contact-icon">📧</div>
+                    <div class="contact-info">
+                        <h3>Email</h3>
+                        <p>alecust123@gmail.com</p>
+                    </div>
+                </a>
+
+                <a href="https://github.com/Blzofando/top-10-streamings" target="_blank" class="contact-card">
+                    <div class="contact-icon">
+                        <svg width="32" height="32" viewBox="0 0 20 20" fill="currentColor">
+                            <path
+                                d="M10 0C4.477 0 0 4.477 0 10c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0110 4.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C17.137 18.163 20 14.418 20 10c0-5.523-4.477-10-10-10z" />
+                        </svg>
+                    </div>
+                    <div class="contact-info">
+                        <h3>GitHub</h3>
+                        <p>Blzofando/top-10-streamings</p>
+                    </div>
+                </a>
+            </div>
+
+            <div class="info-box">
+                <p>✅ Resposta em até 24 horas</p>
+                <p>✅ Setup gratuito</p>
+                <p>✅ Documentação completa</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>Desenvolvido com ❤️ e muito café ☕ no Brasil 🇧🇷</p>
+            <p class="footer-links">
+                <a href="https://github.com/Blzofando/top-10-streamings" target="_blank">GitHub</a>
+                <span>•</span>
+                <a href="https://github.com/Blzofando/top-10-streamings/blob/main/API_USAGE.md" target="_blank">Docs</a>
+                <span>•</span>
+                <a href="mailto:alecust123@gmail.com">Contato</a>
+            </p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
 </body>
 
 </html>

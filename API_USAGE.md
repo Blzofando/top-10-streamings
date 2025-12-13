@@ -42,7 +42,7 @@ GET /api/top-10/{service}?tmdb=true
 **Exemplo:**
 ```bash
 curl -H "X-API-Key: sua_chave" \
-  "https://api.com/api/top-10/netflix?tmdb=true"
+  "https://top-10-streamings.onrender.com/api/top-10/netflix?tmdb=true"
 ```
 
 **Resposta:**
@@ -69,7 +69,7 @@ GET /api/top-10/{service}/movies?tmdb=true
 **Exemplo:**
 ```bash
 curl -H "X-API-Key: sua_chave" \
-  "https://api.com/api/top-10/netflix/movies?tmdb=true"
+  "https://top-10-streamings.onrender.com/api/top-10/netflix/movies?tmdb=true"
 ```
 
 **Resposta:**
@@ -116,7 +116,7 @@ GET /api/top-10/{service}/series?tmdb=true
 **Exemplo:**
 ```bash
 curl -H "X-API-Key: sua_chave" \
-  "https://api.com/api/top-10/netflix/series?tmdb=true"
+  "https://top-10-streamings.onrender.com/api/top-10/netflix/series?tmdb=true"
 ```
 
 ---
@@ -167,7 +167,7 @@ GET /api/firebase/latest/{service}/{type}
 **Exemplo:**
 ```bash
 curl -H "X-API-Key: sua_chave" \
-  "https://api.com/api/firebase/latest/netflix/overall"
+  "https://top-10-streamings.onrender.com/api/firebase/latest/netflix/overall"
 ```
 
 **Resposta:**
@@ -187,7 +187,7 @@ GET /api/firebase/history/{service}/{type}/{date}
 **Exemplo:**
 ```bash
 curl -H "X-API-Key: sua_chave" \
-  "https://api.com/api/firebase/history/netflix/movie/2025-12-10"
+  "https://top-10-streamings.onrender.com/api/firebase/history/netflix/movie/2025-12-10"
 ```
 
 ### Listar Datas Disponíveis
@@ -210,7 +210,7 @@ GET /api/firebase/dates/{service}/{type}
 ```javascript
 const apiKey = 'sua_chave_aqui';
 
-fetch('https://api.com/api/top-10/netflix?tmdb=true', {
+fetch('https://top-10-streamings.onrender.com/api/top-10/netflix?tmdb=true', {
     headers: {
         'X-API-Key': apiKey
     }
@@ -245,7 +245,7 @@ const config = {
     }
 };
 
-axios.get('https://api.com/api/top-10/netflix/movies?tmdb=true', config)
+axios.get('https://top-10-streamings.onrender.com/api/top-10/netflix/movies?tmdb=true', config)
     .then(response => {
         const filmes = response.data.items;
         console.log(`${filmes.length} filmes encontrados`);
@@ -272,7 +272,7 @@ headers = {
 
 # Buscar Top 10
 response = requests.get(
-    'https://api.com/api/top-10/netflix?tmdb=true',
+    'https://top-10-streamings.onrender.com/api/top-10/netflix?tmdb=true',
     headers=headers
 )
 
@@ -293,7 +293,7 @@ for filme in data['movies']:
 $apiKey = 'sua_chave_aqui';
 
 $ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, 'https://api.com/api/top-10/netflix?tmdb=true');
+curl_setopt($ch, CURLOPT_URL, 'https://top-10-streamings.onrender.com/api/top-10/netflix?tmdb=true');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
     'X-API-Key: ' . $apiKey
@@ -426,7 +426,7 @@ X-RateLimit-Remaining: 847
 
 **Monitorar uso:**
 ```javascript
-fetch('https://api.com/api/top-10/netflix', { headers })
+fetch('https://top-10-streamings.onrender.com/api/top-10/netflix', { headers })
     .then(res => {
         console.log('Limite:', res.headers.get('X-RateLimit-Limit'));
         console.log('Restante:', res.headers.get('X-RateLimit-Remaining'));
