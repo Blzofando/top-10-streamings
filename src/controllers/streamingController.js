@@ -213,14 +213,24 @@ export class StreamingController {
 
         console.log(`📊 Total coletado: ${allMovies.length} filmes, ${allSeries.length} séries`);
 
-        // Ordena por popularidade e pega top 10
+        // Ordena por popularidade e pega top 10 - RENUMERA POSITIONS!
         const topMovies = allMovies
             .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
-            .slice(0, 10);
+            .slice(0, 10)
+            .map((item, index) => ({
+                ...item,
+                position: index + 1  // Renumera 1-10!
+            }));
 
         const topSeries = allSeries
             .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
-            .slice(0, 10);
+            .slice(0, 10)
+            .map((item, index) => ({
+                ...item,
+                position: index + 1  // Renumera 1-10!
+            }));
+
+        console.log(`🏆 Rankings globais: ${topMovies.length} filmes, ${topSeries.length} séries`);
 
         const result = {
             date: today,
