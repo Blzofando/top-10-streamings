@@ -21,6 +21,11 @@ export const STREAMING_SERVICES = {
         name: 'Amazon Prime',
         url: 'https://flixpatrol.com/top10/amazon-prime/world/',
         urlPattern: (date) => `https://flixpatrol.com/top10/amazon-prime/world/${date}/`
+    },
+    apple: {
+        name: 'Apple TV+',
+        url: 'https://flixpatrol.com/top10/apple-tv/world/',
+        urlPattern: (date) => `https://flixpatrol.com/top10/apple-tv/world/${date}/`
     }
 };
 

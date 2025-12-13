@@ -9,7 +9,7 @@ import { STREAMING_SERVICES, getTodayDate } from '../config/streamingServices.js
 export class StreamingController {
     /**
      * Busca top 10 de um serviço específico
-     * @param {string} service - Nome do serviço (netflix, hbo, disney, prime)
+     * @param {string} service - Nome do serviço (netflix, hbo, disney, prime, apple)
      * @param {boolean} enrichWithTMDB - Se deve enriquecer com dados do TMDB
      * @param {boolean} saveToFirebase - Se deve salvar automaticamente no Firebase
      * @returns {Promise<Object>} Dados do top 10
@@ -91,22 +91,26 @@ export class StreamingController {
                 return enriched;
             };
 
-            // Enriquece TODOS os filmes (10)
-            console.log('\n🎥 === ENRIQUECENDO FILMES ===');
-            movies = await enrichList(movies, 'Filme');
+            // Enriquece filmes E séries paralelamente
+            const [enrichedMovies, enrichedTvShows] = await Promise.all([
+                enrichList(movies, 'filmes'),
+                enrichList(tvShows, 'séries')
+            ]);
 
-            // Enriquece TODAS as séries (10)
-            console.log('\n📺 === ENRIQUECENDO SÉRIES ===');
-            tvShows = await enrichList(tvShows, 'Série');
+            movies = enrichedMovies;
+            tvShows = enrichedTvShows;
 
-            console.log('\n✅ Enriquecimento completo! Total: 20 itens com TMDB');
+            console.log('✅ Enriquecimento completo! Total: 20 itens com TMDB');
         }
 
-        // AGORA cria o overall a partir dos itens JÁ enriquecidos
+        // Cria ranking "overall" baseado em popularidade (combina movies + tvShows)
         console.log('📊 Criando ranking overall a partir dos 20 itens enriquecidos...');
-        const overall = scraper.createOverallRanking(movies, tvShows);
+        const combined = [...movies, ...tvShows];
+        const overall = combined
+            .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+            .slice(0, 10);
 
-        let result = {
+        const result = {
             service: streamingConfig.name,
             date: getTodayDate(),
             overall,      // Top 10 baseado em popularidade (com TMDB se enriched)
@@ -127,13 +131,12 @@ export class StreamingController {
                 // Salva series (10 com TMDB completo)
                 await firebaseService.saveTop10(service, 'series', date, result.tvShows);
 
-                // Salva overall (10 com TMDB completo)
+                // Salva overall (10 com TMDB completo, baseado em popularidade)
                 await firebaseService.saveTop10(service, 'overall', date, result.overall);
 
-                console.log('💾 ✅ Dados salvos no Firebase: 10 filmes + 10 séries + 10 overall!');
+                console.log('✅ Salvo no Firebase com sucesso!');
             } catch (error) {
-                console.error('⚠️ Erro ao salvar no Firebase:', error.message);
-                // Não interrompe o fluxo se falhar o salvamento
+                console.error('❌ Erro ao salvar no Firebase:', error.message);
             }
         }
 
@@ -141,52 +144,81 @@ export class StreamingController {
     }
 
     /**
-     * Busca top 10 de todos os serviços
-     * @param {boolean} enrichWithTMDB - Se deve enriquecer com dados do TMDB
-     * @param {boolean} saveToFirebase - Se deve salvar automaticamente no Firebase
-     * @returns {Promise<Object>} Dados de todos os streamings
+     * Busca rankings globais agregando TODOS os streamings
+     * @param {boolean} enrichWithTMDB - Se retorna dados enriquecidos
+     * @returns {Promise<Object>} Top 10 filmes + Top 10 séries globais
      */
-    async getAllStreamings(enrichWithTMDB = false, saveToFirebase = true) {
-        const [disney, netflix, hbo, prime] = await Promise.all([
-            this.getTop10('disney', enrichWithTMDB, saveToFirebase),
-            this.getTop10('netflix', enrichWithTMDB, saveToFirebase),
-            this.getTop10('hbo', enrichWithTMDB, saveToFirebase),
-            this.getTop10('prime', enrichWithTMDB, saveToFirebase)
-        ]);
+    async getGlobalTop10(enrichWithTMDB = true) {
+        const today = getTodayDate();
 
-        return {
-            date: getTodayDate(),
-            disney,
-            netflix,
-            hbo,
-            prime
+        console.log('🌍 Buscando rankings globais de todos os streamings...');
+
+        const services = ['netflix', 'disney', 'hbo', 'prime', 'apple'];
+        const allMovies = [];
+        const allSeries = [];
+
+        // Busca dados de cada serviço no Firebase
+        for (const service of services) {
+            try {
+                console.log(`📊 Carregando ${service}...`);
+
+                // Busca filmes
+                const moviesData = await firebaseService.getTop10(service, 'movie', today);
+                if (moviesData && moviesData.length > 0) {
+                    allMovies.push(...moviesData.map(item => ({
+                        ...item,
+                        source: STREAMING_SERVICES[service].name
+                    })));
+                }
+
+                // Busca séries
+                const seriesData = await firebaseService.getTop10(service, 'series', today);
+                if (seriesData && seriesData.length > 0) {
+                    allSeries.push(...seriesData.map(item => ({
+                        ...item,
+                        source: STREAMING_SERVICES[service].name
+                    })));
+                }
+            } catch (error) {
+                console.log(`⚠️ ${service} sem dados: ${error.message}`);
+            }
+        }
+
+        console.log(`📊 Total coletado: ${allMovies.length} filmes, ${allSeries.length} séries`);
+
+        // Ordena por popularidade e pega top 10
+        const topMovies = allMovies
+            .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+            .slice(0, 10);
+
+        const topSeries = allSeries
+            .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+            .slice(0, 10);
+
+        const result = {
+            date: today,
+            movies: topMovies,
+            series: topSeries
         };
+
+        // Salva no Firebase
+        try {
+            await firebaseService.saveTop10('global', 'movie', today, topMovies);
+            await firebaseService.saveTop10('global', 'series', today, topSeries);
+            console.log('✅ Rankings globais salvos no Firebase!');
+        } catch (error) {
+            console.error('❌ Erro ao salvar rankings globais:', error.message);
+        }
+
+        return result;
     }
 
     /**
-     * Endpoint para rota GET
+     * Testa scraping de um serviço (sem salvar)
      */
-    async handleGet(req, res) {
-        try {
-            const { service } = req.params;
-            const enrichWithTMDB = req.query.tmdb === 'true';
-            const saveToFirebase = req.query.save !== 'false'; // Salva por padrão
-
-            if (service === 'all') {
-                const data = await this.getAllStreamings(enrichWithTMDB, saveToFirebase);
-                return res.json(data);
-            }
-
-            const data = await this.getTop10(service, enrichWithTMDB, saveToFirebase);
-            res.json(data);
-        } catch (error) {
-            res.status(500).json({
-                error: error.message,
-                service: req.params.service
-            });
-        }
+    async testScraping(service) {
+        return await this.getTop10(service, false, false);
     }
 }
 
-// Instância singleton
 export const streamingController = new StreamingController();
