@@ -2,9 +2,10 @@ name: Smart Update Cron
 
 on:
   schedule:
-    # Executa a cada 10 minutos
+    # Executa a cada 5 minutos
+    # Com 5 serviços, atualiza todos em ~25 minutos
     # Repositório PÚBLICO = execuções ILIMITADAS e GRATUITAS! 🎉
-    - cron: '*/10 * * * *'
+    - cron: '*/5 * * * *'
   
   # Permite execução manual
   workflow_dispatch:

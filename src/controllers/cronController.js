@@ -47,63 +47,89 @@ export class CronController {
     }
 
     /**
-     * Atualiza apenas os serviços cujos dados expiraram (> 3 horas)
-     * Processa sequencialmente
-     * Para controlar espaçamento: edite manualmente os timestamps no Firebase
+     * Atualiza APENAS o serviço mais desatualizado
+     * Lógica sequencial: 1 ação por cron job
      * 
      * GET /api/cron/update-expired
      */
     async updateExpiredData(req, res) {
-        const services = ['netflix', 'disney', 'hbo', 'prime'];
+        const services = ['netflix', 'disney', 'hbo', 'prime', 'apple'];
 
         const results = {
             timestamp: new Date().toISOString(),
-            checked: [],
-            updated: [],
+            checked: services,
+            updated: null,
             skipped: [],
             errors: []
         };
 
-        console.log('\n🔄 ===== CRON JOB: Verificando dados expirados =====');
+        console.log('\n🔄 ===== CRON JOB: Verificando serviço mais desatualizado =====');
 
-        // Processa cada serviço SEQUENCIALMENTE
-        for (const service of services) {
-            try {
-                results.checked.push(service);
+        try {
+            // 1. Verificar idade de TODOS os serviços
+            const servicesAge = [];
 
-                // Verifica se expirou (> 3 horas)
-                const expired = await this.isDataExpired(service);
+            for (const service of services) {
+                try {
+                    const date = getTodayDate();
+                    const data = await firebaseService.getTop10(service, 'overall', date);
 
-                if (expired) {
-                    console.log(`\n🔄 [${service}] INICIANDO atualização...`);
-
-                    // Atualiza com TMDB e salva no Firebase
-                    // O timestamp será salvo automaticamente
-                    await streamingController.getTop10(service, true, true);
-
-                    results.updated.push(service);
-                    console.log(`✅ [${service}] Atualizado com sucesso!`);
-                } else {
-                    results.skipped.push(service);
-                    console.log(`⏭️  [${service}] PULADO - ainda válido`);
+                    if (!data || data.length === 0) {
+                        // Sem dados = prioridade máxima (99 horas)
+                        servicesAge.push({ service, hours: 99 });
+                        console.log(`⏰ [${service}] Sem dados no Firebase`);
+                    } else {
+                        const firstItem = data[0];
+                        if (!firstItem.timestamp) {
+                            servicesAge.push({ service, hours: 99 });
+                        } else {
+                            const lastUpdate = new Date(firstItem.timestamp);
+                            const now = new Date();
+                            const diffHours = (now - lastUpdate) / (1000 * 60 * 60);
+                            servicesAge.push({ service, hours: diffHours });
+                            console.log(`⏰ [${service}] Última atualização: ${diffHours.toFixed(2)}h atrás`);
+                        }
+                    }
+                } catch (error) {
+                    // Erro ao verificar = prioridade máxima
+                    servicesAge.push({ service, hours: 99 });
+                    console.error(`❌ Erro ao verificar ${service}:`, error.message);
                 }
-
-                // Pequeno delay entre verificações
-                await new Promise(resolve => setTimeout(resolve, 1000));
-
-            } catch (error) {
-                console.error(`❌ [${service}] ERRO:`, error.message);
-                results.errors.push({
-                    service,
-                    error: error.message
-                });
             }
+
+            // 2. Ordenar por mais desatualizado (maior hora)
+            servicesAge.sort((a, b) => b.hours - a.hours);
+
+            const mostOutdated = servicesAge[0];
+
+            console.log(`\n🎯 Serviço mais desatualizado: ${mostOutdated.service} (${mostOutdated.hours.toFixed(2)}h)`);
+
+            // 3. Atualizar SOMENTE o mais desatualizado (se > 3h)
+            if (mostOutdated.hours >= 3) {
+                console.log(`\n🔄 [${mostOutdated.service}] INICIANDO atualização...`);
+
+                await streamingController.getTop10(mostOutdated.service, true, true);
+
+                results.updated = mostOutdated.service;
+                results.skipped = services.filter(s => s !== mostOutdated.service);
+
+                console.log(`✅ [${mostOutdated.service}] Atualizado com sucesso!`);
+            } else {
+                results.skipped = services;
+                console.log(`⏭️ Todos os serviços ainda válidos (< 3h)`);
+            }
+
+        } catch (error) {
+            console.error(`❌ ERRO CRÍTICO:`, error.message);
+            results.errors.push({
+                service: 'cron',
+                error: error.message
+            });
         }
 
         console.log('\n✅ ===== CRON JOB: Finalizado =====');
-        console.log(`📊 Resumo: ${results.updated.length} atualizados, ${results.skipped.length} pulados, ${results.errors.length} erros`);
+        console.log(`📊 Resumo: ${results.updated ? '1 atualizado' : '0 atualizados'}, ${results.skipped.length} pulados`);
 
-        // Retorna resumo
         res.json({
             success: true,
             ...results
