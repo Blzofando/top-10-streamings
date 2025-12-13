@@ -129,7 +129,11 @@ export class StreamingController {
                 // Se nenhum tem, mantém ordem (filmes primeiro)
                 return 0;
             })
-            .slice(0, 10);
+            .slice(0, 10)
+            .map((item, index) => ({
+                ...item,
+                position: index + 1  // Renumera 1-10 (evita positions duplicadas!)
+            }));
 
         console.log(`✅ Overall criado: ${overall.length} itens`);
 
