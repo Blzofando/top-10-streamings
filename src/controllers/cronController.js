@@ -114,6 +114,18 @@ export class CronController {
                 results.skipped = services.filter(s => s !== mostOutdated.service);
 
                 console.log(`✅ [${mostOutdated.service}] Atualizado com sucesso!`);
+
+                // Verifica se agora todos estão atualizados (< 3h) para criar global
+                const allFreshAfterUpdate = servicesAge.filter(s => s.service !== mostOutdated.service).every(s => s.hours < 3);
+                if (allFreshAfterUpdate) {
+                    console.log('\n🌍 Todos os serviços atualizados! Criando rankings globais...');
+                    try {
+                        await streamingController.getGlobalTop10();
+                        console.log('✅ Rankings globais criados!');
+                    } catch (globalError) {
+                        console.error('❌ Erro ao criar rankings globais:', globalError.message);
+                    }
+                }
             } else {
                 results.skipped = services;
                 console.log(`⏭️ Todos os serviços ainda válidos (< 3h)`);
