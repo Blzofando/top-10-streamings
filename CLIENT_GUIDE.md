@@ -69,14 +69,51 @@ curl -H "X-API-Key: sua_chave" \
 
 ## 📡 Endpoints Disponíveis
 
-Ver documentação completa: **[API_USAGE.md](./API_USAGE.md)**
+### ⚡ Quick Endpoints (RECOMENDADO - Rápido)
 
-**Principais:**
-- `/api/top-10/netflix` - Top 10 completo Netflix
-- `/api/top-10/netflix/movies` - Só filmes
-- `/api/top-10/netflix/series` - Só séries
-- `/api/top-10/all` - Todos os streamings
-- `/api/firebase/latest/netflix/overall` - Histórico
+**Busca direto do Firebase - Resposta instantânea!**
+
+```bash
+# Serviço específico
+GET /api/quick/netflix              # Overall + movies + series
+GET /api/quick/netflix/movies       # Só filmes
+GET /api/quick/netflix/series       # Só séries
+GET /api/quick/netflix/overall      # Só overall
+
+# Todos os streamings + global
+GET /api/quick/all                  # TUDO (5 streamings + global)
+
+# Rankings globais
+GET /api/quick/global               # Top 10 filmes + séries de TODOS
+```
+
+**Formatos:**
+- `?format=id` - Leve (só position, title, tmdb_id)
+- `?format=full` - Completo (todos dados TMDB) - **PADRÃO**
+
+**Exemplo:**
+```bash
+# ID only (rápido e leve)
+GET /api/quick/netflix/movies?format=id
+
+# Resposta:
+[
+  { "position": 1, "title": "Filme X", "tmdb_id": 12345 },
+  { "position": 2, "title": "Filme Y", "tmdb_id": 67890 }
+]
+```
+
+### 📊 Top-10 Endpoints (Com Scraping - Lento)
+
+**Verifica Firebase, se não tiver faz scraping (demora 1-3 min)**
+
+```bash
+GET /api/top-10/netflix?tmdb=true   # Completo
+GET /api/top-10/netflix/movies      # Só filmes
+GET /api/top-10/global              # Global (sem scraping)
+```
+
+Ver documentação completa: **[API_USAGE.md](./API_USAGE.md)**
 
 ---
 

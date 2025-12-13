@@ -4,6 +4,7 @@ import top10Routes from './routes/top10Routes.js';
 import firebaseRoutes from './routes/firebaseRoutes.js';
 import cronRoutes from './routes/cronRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import quickRoutes from './routes/quickRoutes.js';
 import { validateApiKey } from './middleware/apiKeyMiddleware.js';
 import { adminAuth } from './middleware/adminAuth.js';
 import { scraper } from './scrapers/flixpatrolScraper.js';
@@ -85,6 +86,7 @@ app.use('/api/admin', adminRoutes);
 // Rotas protegidas por API key
 app.use('/api/top-10', validateApiKey, top10Routes);
 app.use('/api/firebase', validateApiKey, firebaseRoutes);
+app.use('/api/quick', validateApiKey, quickRoutes);  // Endpoints rápidos (só Firebase)
 
 // Cron não precisa de API key (usado pelo GitHub Actions)
 app.use('/api/cron', cronRoutes);
