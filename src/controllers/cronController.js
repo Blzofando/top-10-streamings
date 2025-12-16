@@ -147,15 +147,23 @@ export class CronController {
                     }
                 }
 
-                // 2. Ordenar por mais desatualizado (maior hora)
-                servicesAge.sort((a, b) => b.hours - a.hours);
+                // 2. Calcular "quanto tempo desatualizado" em relação ao threshold de cada serviço
+                // Exemplo: streaming com 3.5h e threshold 3h = 0.5h desatualizado (116%)
+                //          calendário com 5h e threshold 6h = -1h (ainda válido, 83%)
+                servicesAge.forEach(s => {
+                    s.overdueHours = s.hours - s.expireThreshold; // Quanto passou do limite
+                    s.overduePercent = (s.hours / s.expireThreshold) * 100; // Percentual de expiração
+                });
+
+                // Ordenar por "mais desatualizado relativo" (maior overdueHours)
+                servicesAge.sort((a, b) => b.overdueHours - a.overdueHours);
 
                 const mostOutdated = servicesAge[0];
 
-                console.log(`\n🎯 Serviço mais desatualizado: ${mostOutdated.service} (${mostOutdated.hours.toFixed(2)}h, expira em ${mostOutdated.expireThreshold}h)`);
+                console.log(`\n🎯 Serviço mais desatualizado: ${mostOutdated.service} (${mostOutdated.hours.toFixed(2)}h, expira em ${mostOutdated.expireThreshold}h, desatualizado há ${mostOutdated.overdueHours.toFixed(2)}h)`);
 
-                // 3. Atualizar SOMENTE o mais desatualizado (se expirou)
-                if (mostOutdated.hours >= mostOutdated.expireThreshold) {
+                // 3. Atualizar SOMENTE o mais desatualizado (se está REALMENTE expirado)
+                if (mostOutdated.overdueHours > 0) {
                     console.log(`\n🔄 [${mostOutdated.service}] INICIANDO atualização...`);
 
                     // Calendário ou Streaming?
