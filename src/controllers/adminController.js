@@ -11,7 +11,7 @@ export class AdminController {
      */
     async generateKey(req, res) {
         try {
-            const { name, email, rateLimit } = req.body;
+            const { name, email, rateLimit, type } = req.body;
 
             if (!name || !email) {
                 return res.status(400).json({
@@ -19,7 +19,14 @@ export class AdminController {
                 });
             }
 
-            const keyData = await apiKeyService.createKey({ name, email, rateLimit });
+            // Valida tipo se fornecido
+            if (type && type !== 'user' && type !== 'master') {
+                return res.status(400).json({
+                    error: 'Tipo inválido. Use "user" ou "master"'
+                });
+            }
+
+            const keyData = await apiKeyService.createKey({ name, email, rateLimit, type });
 
             res.json({
                 success: true,
@@ -27,6 +34,7 @@ export class AdminController {
                 data: {
                     key: keyData.key,
                     name: keyData.name,
+                    type: keyData.type,
                     rateLimit: keyData.rateLimit,
                     createdAt: keyData.createdAt
                 },

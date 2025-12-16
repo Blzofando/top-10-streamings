@@ -23,6 +23,7 @@ class ApiKeyService {
      * @param {Object} keyData - Dados do usuário da key
      * @param {string} keyData.name - Nome do projeto/site
      * @param {string} keyData.email - Email de contato
+     * @param {string} keyData.type - Tipo da key: 'user' ou 'master' (padrão: 'user')
      * @param {number} keyData.rateLimit - Limite de requests/hora (padrão: 1000)
      * @returns {Promise<Object>} Key criada com dados completos
      */
@@ -36,6 +37,7 @@ class ApiKeyService {
             key,
             name: keyData.name || 'Unnamed',
             email: keyData.email || '',
+            type: keyData.type || 'user', // 'user' ou 'master'
             active: true,
             rateLimit: keyData.rateLimit || 1000, // requests/hora
             requestCount: 0,
@@ -137,6 +139,7 @@ class ApiKeyService {
                 keyPreview: `${doc.id.substring(0, 8)}...${doc.id.substring(doc.id.length - 4)}`,
                 name: data.name,
                 email: data.email,
+                type: data.type || 'user',
                 active: data.active,
                 rateLimit: data.rateLimit,
                 requestCount: data.requestCount,

@@ -95,8 +95,9 @@ export class StreamingController {
                     });
 
                     count++;
-                    // Delay para evitar bloqueio
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    // Delay aleatório entre requests para evitar bloqueio (1-3 segundos)
+                    const delay = 1000 + Math.floor(Math.random() * 2000);
+                    await new Promise(resolve => setTimeout(resolve, delay));
                 }
                 return enriched;
             };

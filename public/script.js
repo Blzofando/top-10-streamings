@@ -1,50 +1,41 @@
-// Simple AOS (Animate On Scroll)
-function initAOS() {
-    const elements = document.querySelectorAll('[data-aos]');
+// Scroll Reveal Animation
+const observerOptions = {
+    threshold: 0.1,
+    rootMargin: '0px 0px -100px 0px'
+};
 
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('aos-animate');
-            }
-        });
-    }, {
-        threshold: 0.1
-    });
-
-    elements.forEach(el => {
-        const delay = el.getAttribute('data-aos-delay');
-        if (delay) {
-            el.style.transitionDelay = `${delay}ms`;
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.classList.add('active');
         }
-        observer.observe(el);
     });
-}
+}, observerOptions);
 
-// Copy code function
-function copyCode() {
-    const code = document.getElementById('codeBlock').textContent;
-    navigator.clipboard.writeText(code).then(() => {
-        const btn = document.querySelector('.copy-btn');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = `
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M4 8L7 11L12 5" stroke="currentColor" stroke-width="2"/>
-            </svg>
-            Copiado!
-        `;
-        btn.style.borderColor = '#10b981';
-        btn.style.color = '#10b981';
+// Observe all scroll-reveal elements
+document.addEventListener('DOMContentLoaded', () => {
+    const revealElements = document.querySelectorAll('.scroll-reveal');
+    revealElements.forEach(el => observer.observe(el));
+});
+
+// Copy Code Function
+function copyCode(button) {
+    const codeBlock = button.parentElement.querySelector('code');
+    const text = codeBlock.textContent;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const originalText = button.textContent;
+        button.textContent = '✓ Copiado!';
+        button.style.background = '#10b981';
 
         setTimeout(() => {
-            btn.innerHTML = originalText;
-            btn.style.borderColor = '';
-            btn.style.color = '';
+            button.textContent = originalText;
+            button.style.background = '';
         }, 2000);
     });
 }
 
-// Smooth scroll
+// Smooth Scroll
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
         e.preventDefault();
@@ -58,7 +49,48 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     });
 });
 
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    initAOS();
+// Navbar Background on Scroll
+let lastScroll = 0;
+window.addEventListener('scroll', () => {
+    const navbar = document.querySelector('.navbar');
+    const currentScroll = window.pageYOffset;
+
+    if (currentScroll > 100) {
+        navbar.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.3)';
+    } else {
+        navbar.style.boxShadow = 'none';
+    }
+
+    lastScroll = currentScroll;
 });
+
+// Typing Effect for Code Window
+const codeElement = document.querySelector('.code-content code');
+if (codeElement) {
+    const originalCode = codeElement.textContent;
+    codeElement.textContent = '';
+
+    let i = 0;
+    const typeSpeed = 30;
+
+    function typeCode() {
+        if (i < originalCode.length) {
+            codeElement.textContent += originalCode.charAt(i);
+            i++;
+            setTimeout(typeCode, typeSpeed);
+        }
+    }
+
+    // Start typing after a delay
+    setTimeout(typeCode, 1000);
+}
+
+// Carousel Navigation
+function moveCarousel(direction) {
+    const carousel = document.getElementById('demoCarousel');
+    const itemWidth = carousel.querySelector('.carousel-item').offsetWidth + 20; // width + gap
+    carousel.scrollBy({
+        left: direction * itemWidth * 2,
+        behavior: 'smooth'
+    });
+}

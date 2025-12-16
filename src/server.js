@@ -5,7 +5,7 @@ import firebaseRoutes from './routes/firebaseRoutes.js';
 import cronRoutes from './routes/cronRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import quickRoutes from './routes/quickRoutes.js';
-import { validateApiKey } from './middleware/apiKeyMiddleware.js';
+import { validateApiKey, validateMasterKey } from './middleware/apiKeyMiddleware.js';
 import { adminAuth } from './middleware/adminAuth.js';
 import { scraper } from './scrapers/flixpatrolScraper.js';
 
@@ -29,19 +29,29 @@ app.use((req, res, next) => {
     next();
 });
 
-// Rota inicial
+// Rota inicial - serve landing page
 app.get('/', (req, res) => {
+    res.sendFile('index.html', { root: './public' });
+});
+
+// API Info em /api (JSON)
+app.get('/api', (req, res) => {
     res.json({
         message: '🎬 FlixPatrol API com Firebase + Auth',
-        version: '2.1.0',
+        version: '2.2.0',
         authentication: {
             required: true,
             header: 'X-API-Key',
             example: 'X-API-Key: sua_chave_aqui',
-            getKey: 'POST /api/admin/keys/generate (admin only)'
+            getKey: 'POST /api/admin/keys/generate (admin only)',
+            types: {
+                user: 'Somente leitura (Firebase)',
+                master: 'Acesso total (scraping + cron + Firebase)'
+            }
         },
         endpoints: {
             top10: {
+                note: 'REQUER MASTER KEY',
                 netflix: '/api/top-10/netflix',
                 disney: '/api/top-10/disney',
                 hbo: '/api/top-10/hbo',
@@ -49,11 +59,13 @@ app.get('/', (req, res) => {
                 all: '/api/top-10/all'
             },
             firebase: {
+                note: 'User key ou Master key',
                 history: '/api/firebase/history/:service/:type/:date',
                 latest: '/api/firebase/latest/:service/:type',
                 dates: '/api/firebase/dates/:service/:type'
             },
             cron: {
+                note: 'REQUER MASTER KEY',
                 updateExpired: '/api/cron/update-expired',
                 health: '/api/cron/health'
             },
@@ -80,16 +92,16 @@ app.get('/', (req, res) => {
     });
 });
 
-// Admin routes (sem validação por enquanto - ADICIONE AUTENTICAÇÃO EM PRODUÇÃO!)
-app.use('/api/admin', adminRoutes);
+// Admin routes - PROTEGIDO com senha administrativa
+app.use('/api/admin', adminAuth, adminRoutes);
 
-// Rotas protegidas por API key
-app.use('/api/top-10', validateApiKey, top10Routes);
+// Rotas protegidas por MASTER key (scraping e cron)
+app.use('/api/top-10', validateMasterKey, top10Routes);
+app.use('/api/cron', validateMasterKey, cronRoutes);
+
+// Rotas protegidas por API key (user ou master - somente leitura)
 app.use('/api/firebase', validateApiKey, firebaseRoutes);
 app.use('/api/quick', validateApiKey, quickRoutes);  // Endpoints rápidos (só Firebase)
-
-// Cron não precisa de API key (usado pelo GitHub Actions)
-app.use('/api/cron', cronRoutes);
 
 // Tratamento de erros
 app.use((err, req, res, next) => {

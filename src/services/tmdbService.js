@@ -125,17 +125,17 @@ export class TMDBService {
         return {
             tmdb_id: tmdbData.id,
             type: isMovie ? 'movie' : 'tv',
-            title: tmdbData.title || tmdbData.name,
-            original_title: tmdbData.original_title || tmdbData.original_name,
-            overview: tmdbData.overview,
-            release_date: tmdbData.release_date || tmdbData.first_air_date,
+            title: tmdbData.title || tmdbData.name || '',
+            original_title: tmdbData.original_title || tmdbData.original_name || '',
+            overview: tmdbData.overview || '',
+            release_date: tmdbData.release_date || tmdbData.first_air_date || null,
             poster_path: tmdbData.poster_path ? `https://image.tmdb.org/t/p/w500${tmdbData.poster_path}` : null,
             backdrop_path: tmdbData.backdrop_path ? `https://image.tmdb.org/t/p/w1280${tmdbData.backdrop_path}` : null,
-            vote_average: tmdbData.vote_average,
-            vote_count: tmdbData.vote_count,
-            popularity: tmdbData.popularity,
-            language: tmdbData.original_language,
-            adult: tmdbData.adult
+            vote_average: tmdbData.vote_average || 0,
+            vote_count: tmdbData.vote_count || 0,
+            popularity: tmdbData.popularity || 0,
+            language: tmdbData.original_language || '',
+            adult: tmdbData.adult || false
         };
     }
 

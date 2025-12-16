@@ -7,6 +7,31 @@ import chromium from '@sparticuz/chromium';
 export class FlixPatrolScraper {
     constructor() {
         this.browser = null;
+        // Array de User-Agents realistas para rotação
+        this.userAgents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+        ];
+    }
+
+    /**
+     * Retorna um User-Agent aleatório
+     */
+    getRandomUserAgent() {
+        return this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
+    }
+
+    /**
+     * Delay aleatório para simular comportamento humano
+     */
+    async randomDelay(min = 1000, max = 3000) {
+        const delay = Math.floor(Math.random() * (max - min + 1)) + min;
+        await new Promise(resolve => setTimeout(resolve, delay));
     }
 
     /**
@@ -43,7 +68,8 @@ export class FlixPatrolScraper {
                 defaultViewport: chromium.defaultViewport,
                 executablePath,
                 headless: 'new', // Modo headless melhorado do Chrome
-                ignoreHTTPSErrors: true
+                ignoreHTTPSErrors: true,
+                protocolTimeout: 180000 // 3 minutos - evita "Runtime.callFunctionOn timed out"
             });
         }
     }
@@ -59,29 +85,55 @@ export class FlixPatrolScraper {
     }
 
     /**
-     * Extrai o top 10 de uma URL específica
+     * Extrai o top 10 de uma URL específica com retry automático
      * @param {string} url - URL da página do FlixPatrol
      * @returns {Object} Dados extraídos (movies e tvShows)
      */
     async scrapeTop10(url) {
+        const maxRetries = 3;
+        const backoffDelays = [2000, 5000, 10000]; // 2s, 5s, 10s
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`📡 Tentativa ${attempt}/${maxRetries}: Acessando ${url}`);
+                return await this._scrapeTop10Internal(url);
+            } catch (error) {
+                console.error(`❌ Tentativa ${attempt} falhou:`, error.message);
+
+                if (attempt < maxRetries) {
+                    const delay = backoffDelays[attempt - 1];
+                    console.log(`⏳ Aguardando ${delay / 1000}s antes de tentar novamente...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                } else {
+                    console.error('❌ Todas as tentativas falharam');
+                    throw error;
+                }
+            }
+        }
+    }
+
+    /**
+     * Método interno de scraping (usado pelo retry)
+     */
+    async _scrapeTop10Internal(url) {
         await this.initialize();
 
         const page = await this.browser.newPage();
 
         try {
-            console.log(`📡 Acessando: ${url} `);
-
-            // Configura viewport realista (desktop)
+            // Configura viewport com variação aleatória para parecer mais humano
+            const width = 1920 + Math.floor(Math.random() * 100);
+            const height = 1080 + Math.floor(Math.random() * 100);
             await page.setViewport({
-                width: 1920,
-                height: 1080,
+                width,
+                height,
                 deviceScaleFactor: 1
             });
 
-            // Configura User-Agent realista (Chrome 120 no Windows)
-            await page.setUserAgent(
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            );
+            // User-Agent rotativo
+            const userAgent = this.getRandomUserAgent();
+            console.log(`🔄 Usando User-Agent: ${userAgent.substring(0, 50)}...`);
+            await page.setUserAgent(userAgent);
 
             // Configura headers extras para parecer mais humano
             await page.setExtraHTTPHeaders({
@@ -92,17 +144,17 @@ export class FlixPatrolScraper {
                 'Upgrade-Insecure-Requests': '1'
             });
 
-            // Acessa a página - mudado para domcontentloaded (mais rápido e confiável)
-            // networkidle2 pode travar se algum recurso externo não carregar
+            // Acessa a página com timeout aumentado
             await page.goto(url, {
                 waitUntil: 'domcontentloaded',
-                timeout: 120000  // 2 minutos
+                timeout: 180000  // 3 minutos (aumentado de 2min)
             });
 
             console.log('📄 Página carregada, aguardando conteúdo...');
 
-            // Aguarda um pouco extra para JavaScript executar
-            await page.waitForTimeout(3000);
+            // Delay aleatório para simular comportamento humano (3-5 segundos)
+            const initialDelay = 3000 + Math.floor(Math.random() * 2000);
+            await page.waitForTimeout(initialDelay);
 
             // Tenta esperar pelas tabelas, mas com timeout menor
             try {
@@ -147,7 +199,11 @@ export class FlixPatrolScraper {
                         try {
                             const titleElement = row.querySelector('td:nth-child(2) a');
                             const title = titleElement ? titleElement.textContent.trim() : null;
-                            const link = titleElement ? titleElement.getAttribute('href') : null;
+                            let link = titleElement ? titleElement.getAttribute('href') : null;
+                            // Fix: Remove trailing colons from URL
+                            if (link && link.endsWith(':')) {
+                                link = link.replace(/:+$/, '');
+                            }
                             const popularityElement = row.querySelector('td:nth-child(3)');
                             const popularity = popularityElement ? parseInt(popularityElement.textContent.trim()) : 0;
                             const positionElement = row.querySelector('td:nth-child(1)');
@@ -223,17 +279,43 @@ export class FlixPatrolScraper {
     }
 
     /**
-     * Extrai detalhes adicionais visitando a página do item
+     * Extrai detalhes adicionais visitando a página do item (com retry)
      * @param {string} url - URL do detalhe no FlixPatrol
      * @returns {Object} Dados detalhados (ano, titulo original, etc)
      */
     async scrapeItemDetails(url) {
         if (!url) return {};
 
+        const maxRetries = 2; // Menos tentativas para detalhes (mais rápido)
+        const backoffDelays = [2000, 5000]; // 2s, 5s
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                return await this._scrapeItemDetailsInternal(url);
+            } catch (error) {
+                if (attempt < maxRetries) {
+                    const delay = backoffDelays[attempt - 1];
+                    console.warn(`⚠️  Tentativa ${attempt} falhou para ${url}, tentando novamente em ${delay / 1000}s...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                } else {
+                    console.error(`❌ Erro ao extrair detalhes de ${url}:`, error.message);
+                    return {};
+                }
+            }
+        }
+    }
+
+    /**
+     * Método interno para extrair detalhes (usado pelo retry)
+     */
+    async _scrapeItemDetailsInternal(url) {
         // Abre nova aba para não interferir
         const page = await this.browser.newPage();
 
         try {
+            // User-Agent rotativo
+            await page.setUserAgent(this.getRandomUserAgent());
+
             // Otimização: desabilita imagens e css
             await page.setRequestInterception(true);
             page.on('request', (req) => {
@@ -244,7 +326,13 @@ export class FlixPatrolScraper {
                 }
             });
 
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await page.goto(url, {
+                waitUntil: 'domcontentloaded',
+                timeout: 60000  // 1 minuto (aumentado de 30s)
+            });
+
+            // Delay pequeno antes de extrair
+            await this.randomDelay(500, 1500);
 
             const details = await page.evaluate(() => {
                 const result = {};
