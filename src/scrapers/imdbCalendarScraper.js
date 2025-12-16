@@ -24,20 +24,38 @@ export class ImdbCalendarScraper {
         let browser;
         try {
             // Configurar Puppeteer
+            // Configurar Puppeteer com otimizações extremas para memória (512MB limit)
             browser = await puppeteer.launch({
-                headless: true,
+                headless: 'new',
                 executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
-                    '--disable-blink-features=AutomationControlled',
-                    '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    '--disable-accelerated-2d-canvas',
+                    '--disable-gpu',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--single-process',
+                    '--disable-extensions',
+                    '--js-flags="--max-old-space-size=256"'
                 ]
             });
 
             const page = await browser.newPage();
-            await page.setViewport({ width: 1920, height: 1080 });
+
+            // Otimização: Bloquear recursos pesados (imagens, fonts, css)
+            await page.setRequestInterception(true);
+            page.on('request', (req) => {
+                const resourceType = req.resourceType();
+                if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
+                    req.abort();
+                } else {
+                    req.continue();
+                }
+            });
+
+            await page.setViewport({ width: 1280, height: 800 }); // Viewport menor economiza RAM
 
             console.log('🌐 Navegando para IMDB Calendar...');
             await page.goto(this.url, {
