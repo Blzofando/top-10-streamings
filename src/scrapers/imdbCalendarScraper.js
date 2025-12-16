@@ -57,27 +57,32 @@ export class ImdbCalendarScraper {
             // Debug: Forward browser console to Node console
             page.on('console', msg => console.log('📺 [BROWSER LOG]:', msg.text()));
 
-            // Otimização: Bloquear APENAS imagens e mídia (CSS e Fontes permitidos para evitar detecção)
+            // Otimização: Bloquear TUDO que não for HTML para economizar memória (OOM Fix)
             await page.setRequestInterception(true);
             page.on('request', (req) => {
                 const resourceType = req.resourceType();
-                // Permitir CSS e Fonts para parecer mais "humano"
-                if (['image', 'media'].includes(resourceType)) {
-                    req.abort();
-                } else {
+                // Permitir Apenas Document e XHR/Fetch essenciais
+                if (['document', 'xhr', 'fetch', 'script'].includes(resourceType)) {
                     req.continue();
+                } else {
+                    // Bloquear imagens, fontes, media, css, etc.
+                    req.abort();
                 }
             });
 
-            // Viewport comum de desktop
-            await page.setViewport({ width: 1366, height: 768 });
-
+            // Viewport mínimo (mobile) consome menos RAM
+            await page.setViewport({ width: 800, height: 600 });
 
             console.log('🌐 Navegando para IMDB Calendar...');
+            // networkidle0 é mais agressivo que networkidle2 (espera 0 conexões ativas)
+            // Timeout menor para falhar rápido e liberar memória
             await page.goto(this.url, {
-                waitUntil: 'networkidle2',
-                timeout: 180000 // 3 minutos
+                waitUntil: 'domcontentloaded', // Não espera networkidle para economizar recursos
+                timeout: 60000
             });
+
+            // Esperar seletor específico aparecer (mais leve que esperar timeout)
+            await page.waitForSelector('article[data-testid="calendar-section"]', { timeout: 30000 });
 
             console.log('📖 Extraindo dados do calendário...');
 
