@@ -23,20 +23,19 @@ export class ImdbCalendarScraper {
 
         let browser;
         try {
-            // Configurar Puppeteer
-            // Configurar Puppeteer com otimizações extremas para memória (512MB limit)
+            // Configurar Puppeteer com otimização e STEALTH para evitar 403
+            // Removemos args que denunciam automação e adicionamos headers reais
             browser = await puppeteer.launch({
-                headless: 'new',
+                headless: 'new', // Modo headless moderno
                 executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
                     '--disable-accelerated-2d-canvas',
-                    '--disable-gpu',
+                    '--disable-blink-features=AutomationControlled', // CRUCIAL para evitar detecção
                     '--no-first-run',
                     '--no-zygote',
-                    '--single-process',
                     '--disable-extensions',
                     '--js-flags="--max-old-space-size=256"'
                 ]
@@ -44,18 +43,35 @@ export class ImdbCalendarScraper {
 
             const page = await browser.newPage();
 
-            // Otimização: Bloquear recursos pesados (imagens, fonts, css)
+            // DEFINIR HEADERS DE NAVEGADOR REAL (Crucial para bypass 403)
+            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+            await page.setExtraHTTPHeaders({
+                'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"Windows"',
+                'Upgrade-Insecure-Requests': '1'
+            });
+
+            // Debug: Forward browser console to Node console
+            page.on('console', msg => console.log('📺 [BROWSER LOG]:', msg.text()));
+
+            // Otimização: Bloquear APENAS imagens e mídia (CSS e Fontes permitidos para evitar detecção)
             await page.setRequestInterception(true);
             page.on('request', (req) => {
                 const resourceType = req.resourceType();
-                if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
+                // Permitir CSS e Fonts para parecer mais "humano"
+                if (['image', 'media'].includes(resourceType)) {
                     req.abort();
                 } else {
                     req.continue();
                 }
             });
 
-            await page.setViewport({ width: 1280, height: 800 }); // Viewport menor economiza RAM
+            // Viewport comum de desktop
+            await page.setViewport({ width: 1366, height: 768 });
+
 
             console.log('🌐 Navegando para IMDB Calendar...');
             await page.goto(this.url, {
@@ -129,11 +145,24 @@ export class ImdbCalendarScraper {
                     });
                 });
 
-                console.log(`Total extraído: ${releases.length} filmes`);
                 return releases;
             });
 
-            console.log(`📦 Total extraído do IMDB: ${rawReleases.length} filmes`);
+            // Debug se vazio
+            if (rawReleases.length === 0) {
+                console.log('⚠️ NENHUM FILME ENCONTRADO! Debugging...');
+                const pageTitle = await page.title();
+                console.log(`TITLE: ${pageTitle}`);
+
+                const bodyText = await page.evaluate(() => document.body.innerText.substring(0, 500));
+                console.log(`BODY PREVIEW: ${bodyText.replace(/\n/g, ' ')}...`);
+
+                // Verificar se existe algum outro elemento que indica erro
+                const content = await page.content();
+                console.log(`HTML LENGTH: ${content.length}`);
+            } else {
+                console.log(`📦 Total extraído do IMDB: ${rawReleases.length} filmes`);
+            }
 
             // Filtrar apenas futuros (remover lançamentos que já passaram)
             const today = new Date();
