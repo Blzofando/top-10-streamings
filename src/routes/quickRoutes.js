@@ -49,4 +49,21 @@ router.get('/:service/overall', async (req, res) => {
     await quickController.getOverall(req, res);
 });
 
+// ===== CALENDÁRIO DE LANÇAMENTOS =====
+// Importação lazy do controller
+let calendarController;
+const getCalendarController = async () => {
+    if (!calendarController) {
+        const module = await import('../controllers/calendarController.js');
+        calendarController = module.calendarController;
+    }
+    return calendarController;
+};
+
+// Calendário de filmes (Firebase rápido)
+router.get('/calendar/movies', async (req, res) => {
+    const controller = await getCalendarController();
+    await controller.getCalendarQuick(req, res);
+});
+
 export default router;

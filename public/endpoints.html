@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Endpoints - FlixPatrol API</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .endpoints-container {
+            padding: 120px 20px 60px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .endpoint-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            transition: transform 0.2s;
+        }
+
+        .endpoint-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary-color);
+        }
+
+        .method {
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            margin-right: 10px;
+        }
+
+        .method.get {
+            background: rgba(52, 168, 83, 0.2);
+            color: #34a853;
+        }
+
+        .url {
+            font-family: monospace;
+            font-size: 1.1em;
+            color: var(--text-primary);
+        }
+
+        .desc {
+            color: var(--text-secondary);
+            margin: 10px 0;
+        }
+
+        .params {
+            margin-top: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .param-item {
+            display: flex;
+            margin-bottom: 5px;
+        }
+
+        .param-name {
+            font-family: monospace;
+            color: var(--secondary-color);
+            width: 150px;
+        }
+
+        .param-desc {
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="logo">
+                <span class="logo-icon">🎬</span>
+                <span class="logo-text">FlixPatrol API</span>
+            </div>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="endpoints.html" class="active">Endpoints</a>
+                <a href="setup.html">Torne Esta API Sua</a>
+                <a href="/#pricing">API Keys</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="endpoints-container">
+        <h1 class="fade-in">Endpoints Disponíveis</h1>
+        <p class="hero-subtitle fade-in delay-1" style="max-width: 100%; margin-bottom: 40px;">
+            Acesse os dados processados e enriquecidos diretamente do nosso cache.
+            <br>
+            <small>* Requer API Key nos headers (`X-API-Key`)</small>
+        </p>
+
+        <div class="endpoint-group fade-in delay-2">
+            <h2 class="gradient-text">📅 Calendário de Lançamentos</h2>
+
+            <div class="endpoint-card">
+                <div>
+                    <span class="method get">GET</span>
+                    <span class="url">/api/quick/calendar/movies</span>
+                </div>
+                <p class="desc">Retorna a lista de próximos lançamentos de filmes no Brasil (IMDB).</p>
+                <div class="params">
+                    <div class="param-item">
+                        <span class="param-name">Retorno</span>
+                        <span class="param-desc">Lista de filmes com título, data, IMDB ID, metadados TMDB</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="endpoint-group fade-in delay-3">
+            <h2 class="gradient-text">🏆 Rankings Top 10</h2>
+
+            <div class="endpoint-card">
+                <div>
+                    <span class="method get">GET</span>
+                    <span class="url">/api/firebase/latest/:service/:type</span>
+                </div>
+                <p class="desc">Retorna o Top 10 mais recente de um serviço.</p>
+                <div class="params">
+                    <div class="param-item">
+                        <span class="param-name">:service</span>
+                        <span class="param-desc">netflix, disney, hbo, prime, apple, globoplay</span>
+                    </div>
+                    <div class="param-item">
+                        <span class="param-name">:type</span>
+                        <span class="param-desc">movies, shows, overall</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div>
+                    <span class="method get">GET</span>
+                    <span class="url">/api/firebase/history/:service/:type/:date</span>
+                </div>
+                <p class="desc">Retorna o Top 10 de uma data específica.</p>
+                <div class="params">
+                    <div class="param-item">
+                        <span class="param-name">:date</span>
+                        <span class="param-desc">Formato YYYY-MM-DD</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 FlixPatrol API. Dados fornecidos por FlixPatrol, IMDB e TMDB.</p>
+        </div>
+    </footer>
+</body>
+
+</html>

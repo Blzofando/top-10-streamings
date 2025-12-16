@@ -25,7 +25,7 @@ X-Admin-Secret: sua_senha_admin
 
 **Senha configurada em**: `.env.local`
 ```bash
-ADMIN_SECRET=@#Chopuchai.20
+ADMIN_SECRET=sua_senha_super_secreta
 ```
 
 > ⚠️ **Em produção**: Configure no Render Dashboard → Environment Variables
@@ -53,7 +53,7 @@ ADMIN_SECRET=@#Chopuchai.20
 
 ```powershell
 $headers = @{
-    "X-Admin-Secret" = "@#Chopuchai.20"
+    "X_API_KEY" = "sua_senha_super_secreta"
     "Content-Type" = "application/json"
 }
 
@@ -88,7 +88,7 @@ Invoke-RestMethod -Method Post `
 
 ```powershell
 $headers = @{
-    "X-Admin-Secret" = "@#Chopuchai.20"
+    "X-Admin-Secret" = "sua_senha_super_secreta"
     "Content-Type" = "application/json"
 }
 
@@ -111,7 +111,7 @@ Invoke-RestMethod -Method Post `
 
 ```bash
 curl -X POST http://localhost:3000/api/admin/keys/generate \
-  -H "X-Admin-Secret: @#Chopuchai.20" \
+  -H "X-Admin-Secret: sua_senha_super_secreta" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Cron Master Key",
@@ -125,7 +125,7 @@ curl -X POST http://localhost:3000/api/admin/keys/generate \
 
 ```bash
 curl -X POST http://localhost:3000/api/admin/keys/generate \
-  -H "X-Admin-Secret: @#Chopuchai.20" \
+  -H "X-Admin-Secret: sua_senha_super_secreta" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Client App",
@@ -142,7 +142,7 @@ curl -X POST http://localhost:3000/api/admin/keys/generate \
 ### PowerShell
 
 ```powershell
-$headers = @{ "X-Admin-Secret" = "@#Chopuchai.20" }
+$headers = @{ "X-Admin-Secret" = "sua_senha_super_secreta" }
 
 Invoke-RestMethod -Uri "http://localhost:3000/api/admin/keys/list" -Headers $headers
 ```
@@ -150,7 +150,7 @@ Invoke-RestMethod -Uri "http://localhost:3000/api/admin/keys/list" -Headers $hea
 ### cURL
 
 ```bash
-curl -H "X-Admin-Secret: @#Chopuchai.20" \
+curl -H "X-Admin-Secret: sua_senha_super_secreta" \
   http://localhost:3000/api/admin/keys/list
 ```
 
@@ -190,7 +190,7 @@ curl -H "X-Admin-Secret: @#Chopuchai.20" \
 ### PowerShell
 
 ```powershell
-$headers = @{ "X-Admin-Secret" = "@#Chopuchai.20" }
+$headers = @{ "X-Admin-Secret" = "sua_senha_super_secreta" }
 
 Invoke-RestMethod -Uri "http://localhost:3000/api/admin/keys/stats" -Headers $headers
 ```
@@ -198,7 +198,7 @@ Invoke-RestMethod -Uri "http://localhost:3000/api/admin/keys/stats" -Headers $he
 ### cURL
 
 ```bash
-curl -H "X-Admin-Secret: @#Chopuchai.20" \
+curl -H "X-Admin-Secret: sua_senha_super_secreta" \
   http://localhost:3000/api/admin/keys/stats
 ```
 
@@ -209,7 +209,7 @@ curl -H "X-Admin-Secret: @#Chopuchai.20" \
 ### PowerShell
 
 ```powershell
-$headers = @{ "X-Admin-Secret" = "@#Chopuchai.20" }
+$headers = @{ "X-Admin-Secret" = "sua_senha_super_secreta" }
 
 Invoke-RestMethod -Method Delete `
   -Uri "http://localhost:3000/api/admin/keys/abc123def456..." `
@@ -220,7 +220,7 @@ Invoke-RestMethod -Method Delete `
 
 ```bash
 curl -X DELETE \
-  -H "X-Admin-Secret: @#Chopuchai.20" \
+  -H "X-Admin-Secret: sua_senha_super_secreta" \
   http://localhost:3000/api/admin/keys/abc123def456...
 ```
 
@@ -433,13 +433,13 @@ openssl rand -base64 32
 # 🔑 CRIAR MASTER KEY (admin operation)
 curl -X POST https://your-api.com/api/admin/keys/generate \
   -H "Content-Type: application/json" \
-  -H "X-Admin-Secret: @#Chopuchai.20" \
+  -H "X-Admin-Secret: sua_senha_super_secreta" \
   -d '{"name":"Master","email":"admin@example.com","type":"master","rateLimit":5000}'
 
 # 🔑 CRIAR USER KEY (admin operation)
 curl -X POST https://your-api.com/api/admin/keys/generate \
   -H "Content-Type: application/json" \
-  -H "X-Admin-Secret: @#Chopuchai.20" \
+  -H "X-Admin-Secret: sua_senha_super_secreta" \
   -d '{"name":"User","email":"user@example.com","type":"user","rateLimit":1000}'
 
 # 🚀 USAR MASTER KEY (scraping - client operation)
@@ -454,6 +454,3 @@ curl -H "X-API-Key: USER_KEY" \
 ---
 
 **⚠️ IMPORTANTE**: Somente você deve ter acesso à senha admin (`X-Admin-Secret`). Os usuários da API usam apenas suas API keys (`X-API-Key`).
-
-**Versão**: 2.2.0  
-**Última atualização**: 2025-12-15

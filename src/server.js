@@ -5,6 +5,7 @@ import firebaseRoutes from './routes/firebaseRoutes.js';
 import cronRoutes from './routes/cronRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import quickRoutes from './routes/quickRoutes.js';
+import calendarRoutes from './routes/calendarRoutes.js';
 import { validateApiKey, validateMasterKey } from './middleware/apiKeyMiddleware.js';
 import { adminAuth } from './middleware/adminAuth.js';
 import { scraper } from './scrapers/flixpatrolScraper.js';
@@ -92,12 +93,31 @@ app.get('/api', (req, res) => {
     });
 });
 
+
 // Admin routes - PROTEGIDO com senha administrativa
 app.use('/api/admin', adminAuth, adminRoutes);
+
+// 🔧 TESTE: Endpoint do calendário SEM proteção para debug
+app.get('/api/calendar-test', async (req, res) => {
+    try {
+        console.log('🧪 Teste do calendário iniciado...');
+        const { calendarController } = await import('./controllers/calendarController.js');
+        console.log('✅ Controller importado com sucesso');
+        await calendarController.getStatus(req, res);
+    } catch (error) {
+        console.error('❌ Erro no teste do calendário:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            stack: error.stack
+        });
+    }
+});
 
 // Rotas protegidas por MASTER key (scraping e cron)
 app.use('/api/top-10', validateMasterKey, top10Routes);
 app.use('/api/cron', validateMasterKey, cronRoutes);
+app.use('/api/calendar', validateMasterKey, calendarRoutes); // Calendário IMDB
 
 // Rotas protegidas por API key (user ou master - somente leitura)
 app.use('/api/firebase', validateApiKey, firebaseRoutes);
