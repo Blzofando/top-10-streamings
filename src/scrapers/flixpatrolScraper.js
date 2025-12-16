@@ -45,9 +45,12 @@ export class FlixPatrolScraper {
             const args = isProduction ? chromium.args : [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
+                '--disable-dev-shm-usage',  // CRUCIAL: Usa /tmp em vez de /dev/shm
                 '--disable-accelerated-2d-canvas',
                 '--disable-gpu',
+                '--no-first-run',
+                '--no-zygote',              // Economiza RAM
+                '--single-process',         // Força processo único (economiza MUITA RAM)
                 '--window-size=1920,1080'
             ];
 
@@ -75,12 +78,27 @@ export class FlixPatrolScraper {
     }
 
     /**
-     * Fecha o navegador
+     * Fecha o navegador (com proteção contra timeout)
      */
     async close() {
         if (this.browser) {
-            await this.browser.close();
-            this.browser = null;
+            try {
+                // Timeout agressivo: se não fechar em 10s, força
+                const closePromise = this.browser.close();
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Browser close timeout')), 10000)
+                );
+
+                await Promise.race([closePromise, timeoutPromise]);
+                console.log('✅ Browser fechado com sucesso');
+            } catch (error) {
+                console.error('⚠️ Erro ao fechar browser:', error.message);
+                // CRÍTICO: Mesmo com erro, marca como null para forçar nova instância
+                console.log('🔄 Forçando reset do browser...');
+            } finally {
+                // SEMPRE define como null, mesmo se close() falhar
+                this.browser = null;
+            }
         }
     }
 
@@ -92,13 +110,28 @@ export class FlixPatrolScraper {
     async scrapeTop10(url) {
         const maxRetries = 3;
         const backoffDelays = [2000, 5000, 10000]; // 2s, 5s, 10s
+        const timeLimit = 240000; // 4 minutos de timeout (margem para processos lentos)
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 console.log(`📡 Tentativa ${attempt}/${maxRetries}: Acessando ${url}`);
-                return await this._scrapeTop10Internal(url);
+
+                // Promise.race: Se demorar mais que timeLimit, aborta
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('SCRAPING_TIMEOUT')), timeLimit)
+                );
+
+                const scrapePromise = this._scrapeTop10Internal(url);
+
+                const result = await Promise.race([scrapePromise, timeoutPromise]);
+                return result;
+
             } catch (error) {
-                console.error(`❌ Tentativa ${attempt} falhou:`, error.message);
+                if (error.message === 'SCRAPING_TIMEOUT') {
+                    console.error(`⏱️ Tentativa ${attempt} expirou após ${timeLimit / 1000}s`);
+                } else {
+                    console.error(`❌ Tentativa ${attempt} falhou:`, error.message);
+                }
 
                 if (attempt < maxRetries) {
                     const delay = backoffDelays[attempt - 1];
