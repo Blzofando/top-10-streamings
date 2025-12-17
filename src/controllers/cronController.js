@@ -3,6 +3,7 @@ import { streamingController } from '../controllers/streamingController.js';
 import { calendarController } from '../controllers/calendarController.js';
 import { calendarFirebaseService } from '../services/calendarService.js';
 import { getTodayDate } from '../config/streamingServices.js';
+import { firebaseLoggingService } from '../services/firebaseLoggingService.js';
 
 /**
  * Controller para operações de cron jobs
@@ -183,50 +184,106 @@ export class CronController {
                 if (mostOutdated.overdueHours > 0) {
                     console.log(`\n🔄 [${mostOutdated.service}] INICIANDO atualização...`);
 
-                    // Calendário ou Streaming?
-                    if (mostOutdated.service === 'calendar-movies') {
-                        // Atualizar calendário de filmes
-                        await calendarController.getMovieCalendar(true, true);
-                    } else if (mostOutdated.service === 'calendar-tv-shows') {
-                        // Atualizar calendário de séries
-                        await calendarController.getTvCalendar(true, true);
-                    } else {
-                        // Streaming - FORÇA scraping mesmo tendo dados (forceUpdate=true)
-                        await streamingController.getTop10(mostOutdated.service, true, true, true);
-                    }
+                    let updateSuccess = false;
+                    const updateStartTime = Date.now();
 
-                    results.updated = mostOutdated.service;
-                    results.skipped = services.filter(s => s !== mostOutdated.service);
-
-                    console.log(`✅ [${mostOutdated.service}] Atualizado com sucesso!`);
-
-                    // Verifica se agora todos os STREAMINGS estão atualizados (< 3h) para criar global
-                    const streamingServices = servicesAge.filter(s => s.service !== 'calendar-movies');
-                    const allFreshAfterUpdate = streamingServices
-                        .filter(s => s.service !== mostOutdated.service)
-                        .every(s => s.hours < 3);
-
-                    if (allFreshAfterUpdate) {
-                        console.log('\n🌍 Todos os streamings atualizados! Criando rankings globais...');
-                        try {
-                            await streamingController.getGlobalTop10();
-                            console.log('✅ Rankings globais criados!');
-                        } catch (globalError) {
-                            console.error('❌ Erro ao criar rankings globais:', globalError.message);
+                    try {
+                        // Calendário ou Streaming?
+                        if (mostOutdated.service === 'calendar-movies') {
+                            // Atualizar calendário de filmes
+                            await calendarController.getMovieCalendar(true, true);
+                        } else if (mostOutdated.service === 'calendar-tv-shows') {
+                            // Atualizar calendário de séries
+                            await calendarController.getTvCalendar(true, true);
+                        } else {
+                            // Streaming - FORÇA scraping mesmo tendo dados (forceUpdate=true)
+                            await streamingController.getTop10(mostOutdated.service, true, true, true);
                         }
+
+                        updateSuccess = true;
+                        const updateDuration = Date.now() - updateStartTime;
+
+                        // Log de sucesso no Firebase
+                        await firebaseLoggingService.logSuccess(
+                            mostOutdated.service,
+                            'cron_update',
+                            { overdueHours: mostOutdated.overdueHours },
+                            updateDuration
+                        );
+
+                        results.updated = mostOutdated.service;
+                        results.skipped = services.filter(s => s !== mostOutdated.service);
+
+                        console.log(`✅ [${mostOutdated.service}] Atualizado com sucesso!`);
+
+                    } catch (error) {
+                        console.error(`❌ [${mostOutdated.service}] Erro na atualização:`, error.message);
+
+                        const updateDuration = Date.now() - updateStartTime;
+
+                        // Log de erro no Firebase
+                        await firebaseLoggingService.logError(
+                            mostOutdated.service,
+                            'cron_update',
+                            error,
+                            {
+                                overdueHours: mostOutdated.overdueHours,
+                                duration_ms: updateDuration
+                            }
+                        );
+
+                        // Registra erro mas NÃO lança - cron continua funcionando
+                        results.errors.push({
+                            service: mostOutdated.service,
+                            error: error.message,
+                            message: 'Update failed, will retry in next cron cycle'
+                        });
+
+                        results.skipped = services.filter(s => s !== mostOutdated.service);
+
+                        console.log(`⏭️ [${mostOutdated.service}] Pulado devido a erro - tentará no próximo cron`);
                     }
 
-                    // Verificar se ambos calendários estão frescos para criar overall
-                    const movieCalendar = servicesAge.find(s => s.service === 'calendar-movies');
-                    const tvCalendar = servicesAge.find(s => s.service === 'calendar-tv-shows');
+                    // Continua para verificar se deve criar overall/global
+                    if (updateSuccess) {
+                        // Verifica se agora todos os STREAMINGS estão atualizados (< 3h) para criar global
+                        const streamingServices = servicesAge.filter(s => s.service !== 'calendar-movies' && s.service !== 'calendar-tv-shows');
+                        const allFreshAfterUpdate = streamingServices
+                            .filter(s => s.service !== mostOutdated.service)
+                            .every(s => s.hours < 3);
 
-                    if (movieCalendar && tvCalendar && movieCalendar.hours < 6 && tvCalendar.hours < 6) {
-                        console.log('\n📅 Ambos calendários atualizados! Criando calendário overall...');
-                        try {
-                            await calendarController.getOverallCalendar(true);
-                            console.log('✅ Calendário overall criado!');
-                        } catch (overallError) {
-                            console.error('❌ Erro ao criar calendário overall:', overallError.message);
+                        if (allFreshAfterUpdate) {
+                            console.log('\n🌍 Todos os streamings atualizados! Criando rankings globais...');
+                            try {
+                                await streamingController.getGlobalTop10();
+                                console.log('✅ Rankings globais criados!');
+                            } catch (globalError) {
+                                console.error('❌ Erro ao criar rankings globais:', globalError.message);
+                                await firebaseLoggingService.logError(
+                                    'global',
+                                    'create_global_ranking',
+                                    globalError
+                                );
+                            }
+                        }
+
+                        // Verificar se ambos calendários estão frescos para criar overall
+                        const movieCalendar = servicesAge.find(s => s.service === 'calendar-movies');
+                        const tvCalendar = servicesAge.find(s => s.service === 'calendar-tv-shows');
+
+                        if (movieCalendar && tvCalendar && movieCalendar.hours < 6 && tvCalendar.hours < 6) {
+                            console.log('\n📅 Ambos calendários atualizados! Criando calendário overall...');
+                            try {
+                                await calendarController.getOverallCalendar(true);
+                                console.log('✅ Calendário overall criado!');
+                            } catch (overallError) {
+                                console.error('❌ Erro ao criar calendário overall:', overallError.message);
+                                await firebaseLoggingService.logError(
+                                    'calendar-overall',
+                                    'create_overall_calendar',
+                                    overallError
+                                );
+                            }
                         }
                     }
                 } else {

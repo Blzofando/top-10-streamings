@@ -1,6 +1,7 @@
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 import { compareTwoStrings } from 'string-similarity';
+import { firebaseLoggingService } from '../services/firebaseLoggingService.js';
 
 /**
  * Scraper para calendário de séries do FlixPatrol
@@ -99,38 +100,118 @@ export class FlixPatrolCalendarScraper {
      * @returns {Promise<Array>} Array de séries com dados TMDB
      */
     async scrapeTvCalendar(existingReleases = []) {
+        const startTime = Date.now();
         console.log('\n📺 ===== FLIXPATROL TV CALENDAR SCRAPER =====');
         console.log(`📊 Lançamentos existentes: ${existingReleases.length}`);
 
-        await this.initialize();
+        let allReleasesScraped = [];
 
         try {
-            // Obter data de hoje para URL
-            const today = this.getTodayDate();
-            const startUrl = `${this.baseUrl}/${today}/`;
+            await this.initialize();
+
+            // PASSO 1: Remover títulos que já passaram da data dos existentes
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Zera hora para comparar apenas data
+
+            const existingReleasesCleaned = existingReleases.filter(release => {
+                if (!release.releaseDate && !release.release_date) return true; // Sem data, mantém
+
+                const releaseDate = new Date(release.releaseDate || release.release_date);
+                releaseDate.setHours(0, 0, 0, 0);
+
+                if (releaseDate < today) {
+                    console.log(`   🗑️ Removendo (data passou): ${release.title || release.fullTitle} (${release.releaseDate || release.release_date})`);
+                    return false;
+                }
+
+                return true; // Mantém
+            });
+
+            console.log(`🧹 Limpeza: ${existingReleases.length} → ${existingReleasesCleaned.length} (removidos ${existingReleases.length - existingReleasesCleaned.length} com data passada)`);
+
+            // PASSO 2: Scraping do FlixPatrol
+            const todayStr = this.getTodayDate();
+            const startUrl = `${this.baseUrl}/${todayStr}/`;
 
             console.log(`🔗 URL inicial: ${startUrl}`);
 
             // Extrair todos os lançamentos de todas as páginas (já filtrados por data)
-            const allReleases = await this.scrapeAllPages(startUrl);
+            try {
+                allReleasesScraped = await this.scrapeAllPages(startUrl);
+                console.log(`\n📊 Total extraído do scraping: ${allReleasesScraped.length} lançamentos`);
+            } catch (scrapeError) {
+                console.error('❌ Erro ao fazer scraping das páginas:', scrapeError.message);
+                await firebaseLoggingService.logError(
+                    'calendar-tv-shows',
+                    'scraping',
+                    scrapeError,
+                    { url: startUrl, stage: 'scrapeAllPages' }
+                );
+                // Fecha browser e lança erro - NÃO continua para enrichment
+                await this.close();
+                throw scrapeError;
+            }
 
-            console.log(`\n📊 Total extraído: ${allReleases.length} lançamentos`);
-
-            // Identificar novos lançamentos
-            const newReleases = this.findNewReleases(allReleases, existingReleases);
+            // PASSO 3: Identificar novos lançamentos (diferença entre scraped e existing cleaned)
+            const newReleases = this.findNewReleases(allReleasesScraped, existingReleasesCleaned);
 
             console.log(`🆕 Novos lançamentos encontrados: ${newReleases.length}`);
-            console.log(`🔍 ${newReleases.length} novos lançamentos serão enriquecidos`);
+            console.log(`🔍 ${newReleases.length} novos lançamentos serão enriquecidos com TMDB`);
 
-            // Enriquecer com dados do TMDB (apenas novos e já filtrados por data)
-            await this.enrichWithTmdb(allReleases, newReleases);
+            // PASSO 4: Enriquecer SOMENTE os novos com dados do TMDB
+            if (newReleases.length > 0 && this.browser) {
+                try {
+                    await this.enrichWithTmdb(allReleasesScraped, newReleases);
+                } catch (enrichError) {
+                    console.error('⚠️ Erro no enrichment (continuando mesmo assim):', enrichError.message);
+                    await firebaseLoggingService.logWarning(
+                        'calendar-tv-shows',
+                        'enrichment',
+                        `Enrichment failed but scraping succeeded: ${enrichError.message}`,
+                        { newReleasesCount: newReleases.length }
+                    );
+                    // NÃO lança erro - dados foram scrapeados com sucesso
+                }
+            }
+
+            // PASSO 5: Mesclar existentes (com TMDB) + novos (recém enriquecidos)
+            const mergedReleases = this.mergeReleases(existingReleasesCleaned, allReleasesScraped);
+
+            console.log(`\n🔀 Merge completo:`);
+            console.log(`   • Existentes (com TMDB): ${existingReleasesCleaned.length}`);
+            console.log(`   • Novos (recém enriquecidos): ${newReleases.length}`);
+            console.log(`   • Total final: ${mergedReleases.length}`);
 
             console.log('✅ ===== SCRAPING CONCLUÍDO =====\n');
 
-            return allReleases;
+            // Log de sucesso
+            const duration = Date.now() - startTime;
+            await firebaseLoggingService.logSuccess(
+                'calendar-tv-shows',
+                'scraping',
+                {
+                    totalReleases: mergedReleases.length,
+                    newReleases: newReleases.length,
+                    existingReleases: existingReleasesCleaned.length,
+                    removedOld: existingReleases.length - existingReleasesCleaned.length
+                },
+                duration
+            );
+
+            return mergedReleases; // Retorna merged ao invés de allReleases
 
         } catch (error) {
             console.error('❌ Erro no scraping:', error.message);
+            const duration = Date.now() - startTime;
+            await firebaseLoggingService.logError(
+                'calendar-tv-shows',
+                'scraping',
+                error,
+                {
+                    existingReleases: existingReleases.length,
+                    duration_ms: duration
+                }
+            );
             throw error;
         } finally {
             await this.close();
@@ -166,7 +247,7 @@ export class FlixPatrolCalendarScraper {
                 // Navegar para página
                 await page.goto(currentUrl, {
                     waitUntil: 'domcontentloaded',
-                    timeout: 60000
+                    timeout: 120000 // Aumentado de 60s para 120s
                 });
 
                 console.log('   ✓ Página carregada');
@@ -408,6 +489,52 @@ export class FlixPatrolCalendarScraper {
     }
 
     /**
+     * Mesclar releases existentes (com TMDB) + novos scrapeados (recém enriquecidos)
+     * Preserva dados TMDB de releases existentes e adiciona novos
+     */
+    mergeReleases(existingReleases, scrapedReleases) {
+        // Criar map de existentes por título (para lookup rápido)
+        const existingMap = new Map();
+        existingReleases.forEach(release => {
+            const key = this.getTitleKey(release);
+            existingMap.set(key, release);
+        });
+
+        // Mesclar: Para cada scraped, se existe no map, usa o existente (com TMDB)
+        // Senão, usa o scraped (novo, recém enriquecido)
+        const merged = scrapedReleases.map(scraped => {
+            const key = this.getTitleKey(scraped);
+            const existing = existingMap.get(key);
+
+            if (existing && existing.tmdb_id) {
+                // Existe e tem TMDB ID - preserva os dados TMDB + atualiza metadados do scraping
+                return {
+                    ...existing, // Mantém TMDB data
+                    releaseDate: scraped.releaseDate || existing.releaseDate, // Atualiza se mudou
+                    platform: scraped.platform || existing.platform,
+                    country: scraped.country || existing.country,
+                    seasonInfo: scraped.seasonInfo || existing.seasonInfo,
+                    genres: scraped.genres || existing.genres
+                };
+            } else {
+                // Novo ou existente sem TMDB - usa scraped (pode ter sido enriquecido agora)
+                return scraped;
+            }
+        });
+
+        return merged;
+    }
+
+    /**
+     * Gera chave única para um título (usado para comparação)
+     */
+    getTitleKey(release) {
+        const title = (release.title || release.fullTitle || '').toLowerCase().trim();
+        const season = (release.seasonInfo || '').toLowerCase().trim();
+        return `${title}|${season}`; // Combina título + temporada
+    }
+
+    /**
      * Identificar novos lançamentos comparando com existentes
      */
     findNewReleases(currentReleases, existingReleases) {
@@ -415,13 +542,13 @@ export class FlixPatrolCalendarScraper {
             return currentReleases; // Tudo é novo
         }
 
-        const existingTitles = new Set(
-            existingReleases.map(r => r.title?.toLowerCase().trim())
+        const existingKeys = new Set(
+            existingReleases.map(r => this.getTitleKey(r))
         );
 
         return currentReleases.filter(release => {
-            const titleKey = release.title?.toLowerCase().trim();
-            return !existingTitles.has(titleKey);
+            const key = this.getTitleKey(release);
+            return !existingKeys.has(key);
         });
     }
 
@@ -432,6 +559,18 @@ export class FlixPatrolCalendarScraper {
         if (newReleases.length === 0) {
             console.log('⏭️ Nenhum lançamento novo para enriquecer');
             return;
+        }
+
+        // CRÍTICO: Verificar se browser ainda existe antes de tentar usar
+        if (!this.browser) {
+            console.error('❌ Browser não disponível para enrichment');
+            await firebaseLoggingService.logError(
+                'calendar-tv-shows',
+                'enrichment',
+                new Error('Browser is null - cannot enrich'),
+                { newReleasesCount: newReleases.length }
+            );
+            throw new Error('Browser is null - cannot perform enrichment');
         }
 
         console.log(`\n🔍 Enriquecendo ${newReleases.length} novos lançamentos com TMDB...`);
@@ -480,6 +619,12 @@ export class FlixPatrolCalendarScraper {
 
             } catch (error) {
                 console.error(`   ❌ Erro ao enriquecer "${release.title}":`, error.message);
+                await firebaseLoggingService.logWarning(
+                    'calendar-tv-shows',
+                    'enrichment',
+                    `Failed to enrich title: ${release.title}`,
+                    { title: release.title, error: error.message }
+                );
                 unmatchedTitles.push({
                     title: release.fullTitle || release.title,
                     error: error.message
@@ -603,9 +748,16 @@ export class FlixPatrolCalendarScraper {
     async scrapeItemDetails(url) {
         if (!url) return {};
 
-        const page = await this.browser.newPage();
+        // Verificar se browser ainda existe antes de criar página
+        if (!this.browser) {
+            console.warn(`⚠️ Browser não disponível, pulando detalhes de ${url}`);
+            return {};
+        }
+
+        let page = null;
 
         try {
+            page = await this.browser.newPage();
             await page.setUserAgent(this.getRandomUserAgent());
 
             // Otimização: desabilitar imagens
@@ -622,7 +774,7 @@ export class FlixPatrolCalendarScraper {
 
             await page.goto(url, {
                 waitUntil: 'domcontentloaded',
-                timeout: 60000
+                timeout: 120000 // Aumentado de 60s para 120s
             });
 
             await this.randomDelay(500, 1500);
@@ -651,7 +803,14 @@ export class FlixPatrolCalendarScraper {
             console.error(`❌ Erro ao extrair detalhes de ${url}:`, error.message);
             return {};
         } finally {
-            await page.close();
+            // Melhor tratamento de erro ao fechar página
+            if (page) {
+                try {
+                    await page.close();
+                } catch (closeError) {
+                    console.warn(`⚠️ Erro ao fechar página de detalhes:`, closeError.message);
+                }
+            }
         }
     }
 

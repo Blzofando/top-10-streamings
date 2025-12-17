@@ -2,6 +2,7 @@ import { scraper } from '../scrapers/flixpatrolScraper.js';
 import { tmdbService } from '../services/tmdbService.js';
 import { firebaseService } from '../services/firebaseService.js';
 import { STREAMING_SERVICES, getTodayDate } from '../config/streamingServices.js';
+import { firebaseLoggingService } from '../services/firebaseLoggingService.js';
 
 /**
  * Controller para operações de streaming (scraping e dados)
@@ -18,158 +19,176 @@ export class StreamingController {
     async getTop10(service, enrichWithTMDB = false, saveToFirebase = true, forceUpdate = false) {
         const today = getTodayDate();
 
-        // 1. Verifica Firebase primeiro (se não for forçar scraping)
-        if (saveToFirebase && !forceUpdate) {
-            console.log(`📊 Verificando Firebase para ${service} - ${today}...`);
-            try {
-                // Busca os 3 tipos separadamente
-                const [overallData, moviesData, seriesData] = await Promise.all([
-                    firebaseService.getTop10(service, 'overall', today),
-                    firebaseService.getTop10(service, 'movie', today),
-                    firebaseService.getTop10(service, 'series', today)
+        try {
+            // 1. Verifica Firebase primeiro (se não for forçar scraping)
+            if (saveToFirebase && !forceUpdate) {
+                console.log(`📊 Verificando Firebase para ${service} - ${today}...`);
+                try {
+                    // Busca os 3 tipos separadamente
+                    const [overallData, moviesData, seriesData] = await Promise.all([
+                        firebaseService.getTop10(service, 'overall', today),
+                        firebaseService.getTop10(service, 'movie', today),
+                        firebaseService.getTop10(service, 'series', today)
+                    ]);
+
+                    // Se tem dados completos, retorna
+                    if (overallData && overallData.length > 0 && moviesData && seriesData) {
+                        console.log(`✅ Dados encontrados no Firebase (${today})`);
+                        console.log(`📊 Overall: ${overallData.length}, Movies: ${moviesData.length}, Series: ${seriesData.length}`);
+
+                        return {
+                            service: STREAMING_SERVICES[service].name,
+                            date: today,
+                            overall: overallData,
+                            movies: moviesData,
+                            tvShows: seriesData
+                        };
+                    }
+                } catch (error) {
+                    console.log(`⚠️ Firebase não tem dados atuais: ${error.message}`);
+                }
+            }
+
+            // 2. Se não tem no Firebase ou é scraping forçado, faz scraping
+            console.log(`🌐 Iniciando scraping do FlixPatrol...`);
+            const streamingConfig = STREAMING_SERVICES[service];
+            if (!streamingConfig) {
+                throw new Error(`Serviço de streaming "${service}" não encontrado`);
+            }
+
+            const url = streamingConfig.urlPattern(today);
+            const data = await scraper.scrapeTop10(url);
+
+            console.log(`📊 Scraping retornou: ${data.movies.length} filmes, ${data.tvShows.length} séries`);
+
+            // Pega os primeiros 10 de cada tipo
+            let movies = data.movies.slice(0, 10);
+            let tvShows = data.tvShows.slice(0, 10);
+
+            // Enriquece com TMDB se solicitado
+            if (enrichWithTMDB) {
+                console.log('🎬 Iniciando enriquecimento TMDB de TODOS os itens (20 no total)...');
+
+                // Função auxiliar para enriquecer lista com detalhes E TMDB
+                const enrichList = async (list, typeName) => {
+                    const enriched = [];
+                    let count = 1;
+                    for (const item of list) {
+                        console.log(`🔍 [${count}/${list.length}] Enriquecendo ${typeName}: ${item.title}`);
+
+                        // 1. Scraping Detalhado (FlixPatrol)
+                        if (item.link) {
+                            const details = await scraper.scrapeItemDetails(item.link);
+                            // Combina dados (prioriza detalhes extraídos)
+                            if (details.year) item.year = details.year;
+                            if (details.type) item.type = details.type;
+                            if (details.original_title) item.title = details.original_title;
+                        }
+
+                        // 2. Busca TMDB (em PT-BR)
+                        const tmdbData = await tmdbService.searchTitle(
+                            `${item.title}${item.year ? ' (' + item.year + ')' : ''}`,
+                            item.type
+                        );
+
+                        enriched.push({
+                            ...item,
+                            tmdb: tmdbData
+                        });
+
+                        count++;
+                        // Delay aleatório entre requests para evitar bloqueio (1-3 segundos)
+                        const delay = 1000 + Math.floor(Math.random() * 2000);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                    return enriched;
+                };
+
+                // Enriquece filmes E séries paralelamente
+                const [enrichedMovies, enrichedTvShows] = await Promise.all([
+                    enrichList(movies, 'filmes'),
+                    enrichList(tvShows, 'séries')
                 ]);
 
-                // Se tem dados completos, retorna
-                if (overallData && overallData.length > 0 && moviesData && seriesData) {
-                    console.log(`✅ Dados encontrados no Firebase (${today})`);
-                    console.log(`📊 Overall: ${overallData.length}, Movies: ${moviesData.length}, Series: ${seriesData.length}`);
+                movies = enrichedMovies;
+                tvShows = enrichedTvShows;
 
-                    return {
-                        service: STREAMING_SERVICES[service].name,
-                        date: today,
-                        overall: overallData,
-                        movies: moviesData,
-                        tvShows: seriesData
-                    };
-                }
-            } catch (error) {
-                console.log(`⚠️ Firebase não tem dados atuais: ${error.message}`);
+                console.log('✅ Enriquecimento completo! Total: 20 itens com TMDB');
             }
-        }
 
-        // 2. Se não tem no Firebase ou é scraping forçado, faz scraping
-        console.log(`🌐 Iniciando scraping do FlixPatrol...`);
-        const streamingConfig = STREAMING_SERVICES[service];
-        if (!streamingConfig) {
-            throw new Error(`Serviço de streaming "${service}" não encontrado`);
-        }
+            // Cria ranking "overall" baseado em popularidade (combina movies + tvShows)
+            console.log('📊 Criando ranking overall a partir dos 20 itens enriquecidos...');
+            const combined = [...movies, ...tvShows];
 
-        const url = streamingConfig.urlPattern(today);
-        const data = await scraper.scrapeTop10(url);
-
-        console.log(`📊 Scraping retornou: ${data.movies.length} filmes, ${data.tvShows.length} séries`);
-
-        // Pega os primeiros 10 de cada tipo
-        let movies = data.movies.slice(0, 10);
-        let tvShows = data.tvShows.slice(0, 10);
-
-        // Enriquece com TMDB se solicitado
-        if (enrichWithTMDB) {
-            console.log('🎬 Iniciando enriquecimento TMDB de TODOS os itens (20 no total)...');
-
-            // Função auxiliar para enriquecer lista com detalhes E TMDB
-            const enrichList = async (list, typeName) => {
-                const enriched = [];
-                let count = 1;
-                for (const item of list) {
-                    console.log(`🔍 [${count}/${list.length}] Enriquecendo ${typeName}: ${item.title}`);
-
-                    // 1. Scraping Detalhado (FlixPatrol)
-                    if (item.link) {
-                        const details = await scraper.scrapeItemDetails(item.link);
-                        // Combina dados (prioriza detalhes extraídos)
-                        if (details.year) item.year = details.year;
-                        if (details.type) item.type = details.type;
-                        if (details.original_title) item.title = details.original_title;
+            // Ordena por popularidade (se disponível) ou mantém ordem original
+            const overall = combined
+                .sort((a, b) => {
+                    // Se ambos têm popularity, usa
+                    if (a.popularity && b.popularity) {
+                        return b.popularity - a.popularity;
                     }
+                    // Se só um tem, prioriza o que tem
+                    if (a.popularity) return -1;
+                    if (b.popularity) return 1;
+                    // Se nenhum tem, mantém ordem (filmes primeiro)
+                    return 0;
+                })
+                .slice(0, 10)
+                .map((item, index) => ({
+                    ...item,
+                    position: index + 1  // Renumera 1-10 (evita positions duplicadas!)
+                }));
 
-                    // 2. Busca TMDB (em PT-BR)
-                    const tmdbData = await tmdbService.searchTitle(
-                        `${item.title}${item.year ? ' (' + item.year + ')' : ''}`,
-                        item.type
-                    );
+            console.log(`✅ Overall criado: ${overall.length} itens`);
 
-                    enriched.push({
-                        ...item,
-                        tmdb: tmdbData
-                    });
-
-                    count++;
-                    // Delay aleatório entre requests para evitar bloqueio (1-3 segundos)
-                    const delay = 1000 + Math.floor(Math.random() * 2000);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
-                return enriched;
+            const result = {
+                service: streamingConfig.name,
+                date: getTodayDate(),
+                overall,      // Top 10 baseado em popularidade (com TMDB se enriched)
+                movies,       // 10 filmes completos (com TMDB se enriched)
+                tvShows       // 10 séries completas (com TMDB se enriched)
             };
 
-            // Enriquece filmes E séries paralelamente
-            const [enrichedMovies, enrichedTvShows] = await Promise.all([
-                enrichList(movies, 'filmes'),
-                enrichList(tvShows, 'séries')
-            ]);
+            // Salva no Firebase automaticamente se solicitado
+            if (saveToFirebase && enrichWithTMDB) {
+                try {
+                    const date = getTodayDate();
 
-            movies = enrichedMovies;
-            tvShows = enrichedTvShows;
+                    console.log('💾 Salvando no Firebase...');
 
-            console.log('✅ Enriquecimento completo! Total: 20 itens com TMDB');
-        }
+                    // Salva movies (10 com TMDB completo)
+                    await firebaseService.saveTop10(service, 'movie', date, result.movies);
 
-        // Cria ranking "overall" baseado em popularidade (combina movies + tvShows)
-        console.log('📊 Criando ranking overall a partir dos 20 itens enriquecidos...');
-        const combined = [...movies, ...tvShows];
+                    // Salva series (10 com TMDB completo)
+                    await firebaseService.saveTop10(service, 'series', date, result.tvShows);
 
-        // Ordena por popularidade (se disponível) ou mantém ordem original
-        const overall = combined
-            .sort((a, b) => {
-                // Se ambos têm popularity, usa
-                if (a.popularity && b.popularity) {
-                    return b.popularity - a.popularity;
+                    // Salva overall (10 com TMDB completo, baseado em popularidade)
+                    await firebaseService.saveTop10(service, 'overall', date, result.overall);
+
+                    console.log('✅ Salvo no Firebase com sucesso!');
+                } catch (error) {
+                    console.error('❌ Erro ao salvar no Firebase:', error.message);
+                    await firebaseLoggingService.logError(
+                        service,
+                        'save_to_firebase',
+                        error,
+                        { date: today }
+                    );
                 }
-                // Se só um tem, prioriza o que tem
-                if (a.popularity) return -1;
-                if (b.popularity) return 1;
-                // Se nenhum tem, mantém ordem (filmes primeiro)
-                return 0;
-            })
-            .slice(0, 10)
-            .map((item, index) => ({
-                ...item,
-                position: index + 1  // Renumera 1-10 (evita positions duplicadas!)
-            }));
-
-        console.log(`✅ Overall criado: ${overall.length} itens`);
-
-        const result = {
-            service: streamingConfig.name,
-            date: getTodayDate(),
-            overall,      // Top 10 baseado em popularidade (com TMDB se enriched)
-            movies,       // 10 filmes completos (com TMDB se enriched)
-            tvShows       // 10 séries completas (com TMDB se enriched)
-        };
-
-        // Salva no Firebase automaticamente se solicitado
-        if (saveToFirebase && enrichWithTMDB) {
-            try {
-                const date = getTodayDate();
-
-                console.log('💾 Salvando no Firebase...');
-
-                // Salva movies (10 com TMDB completo)
-                await firebaseService.saveTop10(service, 'movie', date, result.movies);
-
-                // Salva series (10 com TMDB completo)
-                await firebaseService.saveTop10(service, 'series', date, result.tvShows);
-
-                // Salva overall (10 com TMDB completo, baseado em popularidade)
-                await firebaseService.saveTop10(service, 'overall', date, result.overall);
-
-                console.log('✅ Salvo no Firebase com sucesso!');
-            } catch (error) {
-                console.error('❌ Erro ao salvar no Firebase:', error.message);
             }
-        }
 
-        return result;
+            return result;
+
+        } catch (error) {
+            console.error(`❌ Erro no top10 de ${service}:`, error.message);
+            await firebaseLoggingService.logError(
+                service,
+                'scraping',
+                error,
+                { url: STREAMING_SERVICES[service]?.urlPattern(today) }
+            );
+            throw error;
+        }
     }
 
     /**

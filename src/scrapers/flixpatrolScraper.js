@@ -1,5 +1,6 @@
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
+import { firebaseLoggingService } from '../services/firebaseLoggingService.js';
 
 /**
  * Extrai dados do FlixPatrol usando Puppeteer
@@ -233,21 +234,36 @@ export class FlixPatrolScraper {
                             const titleElement = row.querySelector('td:nth-child(2) a');
                             const title = titleElement ? titleElement.textContent.trim() : null;
                             let link = titleElement ? titleElement.getAttribute('href') : null;
-                            // Fix: Remove trailing colons from URL
-                            if (link && link.endsWith(':')) {
+
+                            // Fix: Remove trailing colons and validate URL
+                            if (link) {
+                                // Remove trailing colons
                                 link = link.replace(/:+$/, '');
+
+                                // Validate URL structure before using
+                                if (!link || link.length < 5 || link.includes('::')) {
+                                    console.warn(`⚠️ URL malformada detectada: "${link}" - pulando item`);
+                                    return; // Skip this item
+                                }
+
+                                // Ensure it starts with /
+                                if (!link.startsWith('/')) {
+                                    console.warn(`⚠️ URL sem barra inicial: "${link}" - corrigindo`);
+                                    link = '/' + link;
+                                }
                             }
+
                             const popularityElement = row.querySelector('td:nth-child(3)');
                             const popularity = popularityElement ? parseInt(popularityElement.textContent.trim()) : 0;
                             const positionElement = row.querySelector('td:nth-child(1)');
                             const position = positionElement ? parseInt(positionElement.textContent.replace('.', '').trim()) : index + 1;
 
-                            if (title) {
+                            if (title && link) {
                                 items.push({
                                     position,
                                     title,
                                     popularity: popularity || 0, // Fallback se popularidade falhar
-                                    link: link ? `https://flixpatrol.com${link}` : null
+                                    link: `https://flixpatrol.com${link}`
                                 });
                             }
                         } catch (error) {

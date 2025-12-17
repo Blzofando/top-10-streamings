@@ -94,7 +94,7 @@ GET /api/quick/global               # Top 10 filmes + séries de TODOS
 **Exemplo:**
 ```bash
 # ID only (rápido e leve)
-GET /api/quick/netflix/movies?format=id
+GET /api/quick/netflix/overall?format=id
 
 # Resposta:
 [
