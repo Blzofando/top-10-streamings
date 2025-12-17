@@ -4,3 +4,4 @@ node_modules/
 .DS_Store
 src/config/firebase-credentials.json
 ADMIN_API_REFERENCE.md
+ADMIN_GUIDE.md

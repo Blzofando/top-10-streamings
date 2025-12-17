@@ -13,7 +13,7 @@ export class QuickController {
             return {
                 position: item.position,
                 title: item.title,
-                tmdb_id: item.tmdb?.id || null
+                tmdb_id: item.tmdb?.tmdb_id || null
             };
         }
         // Full format - retorna tudo
@@ -196,6 +196,44 @@ export class QuickController {
             }
 
             // Busca dados GLOBAIS
+            const [globalMovies, globalSeries] = await Promise.all([
+                firebaseService.getTop10('global', 'movie', today),
+                firebaseService.getTop10('global', 'series', today)
+            ]);
+
+            result.global = {
+                movies: this.formatItems(globalMovies, format),
+                series: this.formatItems(globalSeries, format)
+            };
+
+            res.json(result);
+        } catch (error) {
+            res.status(500).json({
+                error: 'Erro ao buscar dados',
+                message: error.message
+            });
+        }
+    }
+
+    /**
+     * GET /api/quick/overall
+     * Retorna overall de cada streaming + global completo (movies + series)
+     */
+    async getAllOverall(req, res) {
+        try {
+            const format = req.query.format || 'full';
+            const today = getTodayDate();
+            const services = ['netflix', 'disney', 'hbo', 'prime', 'apple'];
+
+            const result = {};
+
+            // Busca overall de cada serviço
+            for (const service of services) {
+                const overall = await firebaseService.getTop10(service, 'overall', today);
+                result[service] = this.formatItems(overall, format);
+            }
+
+            // Busca dados GLOBAIS (movies + series)
             const [globalMovies, globalSeries] = await Promise.all([
                 firebaseService.getTop10('global', 'movie', today),
                 firebaseService.getTop10('global', 'series', today)

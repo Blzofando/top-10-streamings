@@ -18,6 +18,11 @@ router.get('/global', async (req, res) => {
     await quickController.getGlobal(req, res);
 });
 
+// Overall de todos os streamings + global completo
+router.get('/overall', async (req, res) => {
+    await quickController.getAllOverall(req, res);
+});
+
 // Todos os streamings + global
 router.get('/all', async (req, res) => {
     await quickController.getAll(req, res);
