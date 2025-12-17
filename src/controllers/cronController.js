@@ -65,8 +65,8 @@ export class CronController {
      * GET /api/cron/update-expired
      */
     async updateExpiredData(req, res) {
-        // 5 streamings + 1 calendário
-        const services = ['netflix', 'disney', 'hbo', 'prime', 'apple', 'calendar-movies'];
+        // 5 streamings + 2 calendários
+        const services = ['netflix', 'disney', 'hbo', 'prime', 'apple', 'calendar-movies', 'calendar-tv-shows'];
 
         // ✅ FIRE AND FORGET: Responde IMEDIATAMENTE
         res.json({
@@ -117,7 +117,24 @@ export class CronController {
                                     servicesAge.push({ service, hours: 99, expireThreshold: 6 });
                                 }
                             }
-                        } else {
+                        }
+                        // Calendário de TV shows
+                        else if (service === 'calendar-tv-shows') {
+                            const docRef = firebaseService.db.collection('calendars').doc('tv-shows');
+                            const doc = await docRef.get();
+
+                            if (doc.exists) {
+                                const data = doc.data();
+                                const lastUpdate = new Date(data.timestamp);
+                                const now = new Date();
+                                const diffHours = (now - lastUpdate) / (1000 * 60 * 60);
+                                servicesAge.push({ service, hours: diffHours, expireThreshold: 6 });
+                                console.log(`⏰ [${service}] Última atualização: ${diffHours.toFixed(2)}h atrás (expira em 6h)`);
+                            } else {
+                                servicesAge.push({ service, hours: 99, expireThreshold: 6 });
+                            }
+                        }
+                        else {
                             // Streamings (lógica antiga - 3h)
                             const date = getTodayDate();
                             const data = await firebaseService.getTop10(service, 'overall', date);
@@ -168,8 +185,11 @@ export class CronController {
 
                     // Calendário ou Streaming?
                     if (mostOutdated.service === 'calendar-movies') {
-                        // Atualizar calendário
+                        // Atualizar calendário de filmes
                         await calendarController.getMovieCalendar(true, true);
+                    } else if (mostOutdated.service === 'calendar-tv-shows') {
+                        // Atualizar calendário de séries
+                        await calendarController.getTvCalendar(true, true);
                     } else {
                         // Streaming - FORÇA scraping mesmo tendo dados (forceUpdate=true)
                         await streamingController.getTop10(mostOutdated.service, true, true, true);
@@ -193,6 +213,20 @@ export class CronController {
                             console.log('✅ Rankings globais criados!');
                         } catch (globalError) {
                             console.error('❌ Erro ao criar rankings globais:', globalError.message);
+                        }
+                    }
+
+                    // Verificar se ambos calendários estão frescos para criar overall
+                    const movieCalendar = servicesAge.find(s => s.service === 'calendar-movies');
+                    const tvCalendar = servicesAge.find(s => s.service === 'calendar-tv-shows');
+
+                    if (movieCalendar && tvCalendar && movieCalendar.hours < 6 && tvCalendar.hours < 6) {
+                        console.log('\n📅 Ambos calendários atualizados! Criando calendário overall...');
+                        try {
+                            await calendarController.getOverallCalendar(true);
+                            console.log('✅ Calendário overall criado!');
+                        } catch (overallError) {
+                            console.error('❌ Erro ao criar calendário overall:', overallError.message);
                         }
                     }
                 } else {

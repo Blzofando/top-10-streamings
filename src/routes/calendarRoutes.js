@@ -49,6 +49,33 @@ router.get('/cleanup', async (req, res) => {
 });
 
 /**
+ * GET /api/calendar/tv-shows
+ * Força scraping do calendário de séries do FlixPatrol
+ * Query params:
+ * - force=true: força scraping mesmo se tiver cache válido
+ * - save=false: não salva no Firebase (apenas retorna)
+ * 
+ * Requer: Master API Key
+ */
+router.get('/tv-shows', async (req, res) => {
+    const controller = await getCalendarController();
+    await controller.getTvShows(req, res);
+});
+
+/**
+ * GET /api/calendar/overall
+ * Retorna calendário combinado (filmes + séries) ordenado por data
+ * Query params:
+ * - force=true: força recriação do overall
+ * 
+ * Requer: User ou Master API Key
+ */
+router.get('/overall', async (req, res) => {
+    const controller = await getCalendarController();
+    await controller.getOverall(req, res);
+});
+
+/**
  * GET /api/calendar/test
  * Endpoint de teste SEM autenticação
  */

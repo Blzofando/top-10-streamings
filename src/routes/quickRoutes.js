@@ -66,4 +66,16 @@ router.get('/calendar/movies', async (req, res) => {
     await controller.getCalendarQuick(req, res);
 });
 
+// Calendário de séries (Firebase rápido)
+router.get('/calendar/tv-shows', async (req, res) => {
+    const controller = await getCalendarController();
+    await controller.getTvCalendarQuick(req, res);
+});
+
+// Calendário overall (Firebase rápido)
+router.get('/calendar/overall', async (req, res) => {
+    const controller = await getCalendarController();
+    await controller.getOverallCalendarQuick(req, res);
+});
+
 export default router;

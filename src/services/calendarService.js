@@ -50,6 +50,175 @@ export class CalendarFirebaseService {
     }
 
     /**
+     * Salvar calendário de séries no Firebase
+     * @param {Array} releases - Array de lançamentos
+     * @returns {Promise<boolean>}
+     */
+    async saveTvCalendar(releases) {
+        try {
+            const today = this.getTodayDate();
+
+            console.log(`💾 Salvando calendário de séries no Firebase...`);
+            console.log(`📅 Data: ${today}`);
+            console.log(`📊 Total de lançamentos: ${releases.length}`);
+
+            // Preparar documento
+            const document = {
+                timestamp: new Date().toISOString(),
+                date: today,
+                type: 'tv-shows',
+                totalReleases: releases.length,
+                releases: releases
+            };
+
+            // Salvar no Firebase
+            const docRef = firebaseService.db
+                .collection(this.collectionName)
+                .doc('tv-shows');
+
+            await docRef.set(document, { merge: false });
+
+            console.log(`✅ Calendário de séries salvo com sucesso!`);
+            return true;
+
+        } catch (error) {
+            console.error('❌ Erro ao salvar calendário de séries:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Buscar calendário de séries do Firebase
+     * @returns {Promise<Array|null>}
+     */
+    async getTvCalendar() {
+        try {
+            const docRef = firebaseService.db
+                .collection(this.collectionName)
+                .doc('tv-shows');
+
+            const doc = await docRef.get();
+
+            if (!doc.exists) {
+                console.log('⚠️ Nenhum calendário de séries encontrado no Firebase');
+                return null;
+            }
+
+            const data = doc.data();
+
+            // Verifica se expirou (6 horas)
+            const timestamp = new Date(data.timestamp);
+            const now = new Date();
+            const diffHours = (now - timestamp) / (1000 * 60 * 60);
+
+            if (diffHours >= 6) {
+                console.log(`⏰ Calendário de séries expirado (${diffHours.toFixed(2)}h). Precisa atualizar.`);
+                return null;
+            }
+
+            console.log(`✅ Calendário de séries encontrado (${diffHours.toFixed(2)}h atrás)`);
+            console.log(`📊 Total de lançamentos: ${data.releases?.length || 0}`);
+
+            return data.releases || [];
+
+        } catch (error) {
+            console.error('❌ Erro ao buscar calendário de séries:', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * Salvar calendário overall (filmes + séries) ordenado por data
+     * @param {Array} movieReleases - Lançamentos de filmes
+     * @param {Array} tvReleases - Lançamentos de séries
+     * @returns {Promise<boolean>}
+     */
+    async saveOverallCalendar(movieReleases, tvReleases) {
+        try {
+            const today = this.getTodayDate();
+
+            // Combinar filmes e séries
+            const moviesWithType = movieReleases.map(r => ({ ...r, type: 'movie' }));
+            const tvWithType = tvReleases.map(r => ({ ...r, type: 'tv' }));
+            const combined = [...moviesWithType, ...tvWithType];
+
+            // Ordenar por data (mais recente primeiro)
+            combined.sort((a, b) => {
+                const dateA = new Date(a.releaseDate || a.release_date || 0);
+                const dateB = new Date(b.releaseDate || b.release_date || 0);
+                return dateA - dateB; // Crescente (mais próximo primeiro)
+            });
+
+            console.log(`💾 Salvando calendário overall no Firebase...`);
+            console.log(`📅 Data: ${today}`);
+            console.log(`📊 Total: ${combined.length} (${movieReleases.length} filmes + ${tvReleases.length} séries)`);
+
+            const document = {
+                timestamp: new Date().toISOString(),
+                date: today,
+                type: 'overall',
+                totalReleases: combined.length,
+                totalMovies: movieReleases.length,
+                totalTvShows: tvReleases.length,
+                releases: combined
+            };
+
+            const docRef = firebaseService.db
+                .collection(this.collectionName)
+                .doc('overall');
+
+            await docRef.set(document, { merge: false });
+
+            console.log(`✅ Calendário overall salvo com sucesso!`);
+            return true;
+
+        } catch (error) {
+            console.error('❌ Erro ao salvar calendário overall:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Buscar calendário overall do Firebase
+      * @returns {Promise<Array|null>}
+     */
+    async getOverallCalendar() {
+        try {
+            const docRef = firebaseService.db
+                .collection(this.collectionName)
+                .doc('overall');
+
+            const doc = await docRef.get();
+
+            if (!doc.exists) {
+                console.log('⚠️ Nenhum calendário overall encontrado no Firebase');
+                return null;
+            }
+
+            const data = doc.data();
+
+            // Verifica se expirou (6 horas)
+            const timestamp = new Date(data.timestamp);
+            const now = new Date();
+            const diffHours = (now - timestamp) / (1000 * 60 * 60);
+
+            if (diffHours >= 6) {
+                console.log(`⏰ Calendário overall expirado (${diffHours.toFixed(2)}h). Precisa atualizar.`);
+                return null;
+            }
+
+            console.log(`✅ Calendário overall encontrado (${diffHours.toFixed(2)}h atrás)`);
+            console.log(`📊 Total: ${data.releases?.length || 0} (${data.totalMovies} filmes + ${data.totalTvShows} séries)`);
+
+            return data.releases || [];
+
+        } catch (error) {
+            console.error('❌ Erro ao buscar calendário overall:', error.message);
+            return null;
+        }
+    }
+
+    /**
      * Buscar calendário de filmes do Firebase
      * @returns {Promise<Array|null>}
      */

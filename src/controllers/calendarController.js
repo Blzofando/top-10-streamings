@@ -66,6 +66,132 @@ export class CalendarController {
     }
 
     /**
+     * Obter calendário de séries com scraping incremental
+     * GET /api/calendar/tv-shows
+     * 
+     * @param {boolean} forceUpdate - Força scraping mesmo se tiver cache válido
+     * @param {boolean} save - Salvar resultado no Firebase
+     */
+    async getTvCalendar(forceUpdate = false, save = true) {
+        console.log('\n📺 ===== CALENDAR CONTROLLER: TV Shows Calendar =====');
+        console.log(`🔄 Force Update: ${forceUpdate}`);
+        console.log(`💾 Save to Firebase: ${save}`);
+
+        try {
+            let releases = [];
+
+            if (!forceUpdate) {
+                // Tentar buscar do Firebase primeiro
+                console.log('📦 Tentando buscar do Firebase...');
+                releases = await calendarFirebaseService.getTvCalendar();
+
+                if (releases && releases.length > 0) {
+                    console.log(`✅ Dados encontrados no Firebase (${releases.length} séries)`);
+                    return {
+                        source: 'firebase',
+                        timestamp: new Date().toISOString(),
+                        totalReleases: releases.length,
+                        releases
+                    };
+                }
+            }
+
+            // Scraping incremental
+            console.log('\n🌐 Iniciando scraping do FlixPatrol...');
+
+            // Importar scraper dinamicamente
+            const { flixpatrolCalendarScraper } = await import('../scrapers/flixpatrolCalendarScraper.js');
+
+            // Buscar dados existentes para comparação
+            const existingReleases = await calendarFirebaseService.getTvCalendar() || [];
+
+            // Fazer scraping com lógica incremental
+            releases = await flixpatrolCalendarScraper.scrapeTvCalendar(existingReleases);
+
+            // Salvar no Firebase se solicitado
+            if (save) {
+                await calendarFirebaseService.saveTvCalendar(releases);
+            }
+
+            console.log('✅ ===== CALENDAR CONTROLLER: Concluído =====\n');
+
+            return {
+                source: 'scraping',
+                timestamp: new Date().toISOString(),
+                totalReleases: releases.length,
+                releases
+            };
+
+        } catch (error) {
+            console.error('❌ Erro no Calendar Controller (TV):', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * Obter calendário overall (filmes + séries) combinado e ordenado por data
+     * GET /api/calendar/overall
+     * 
+     * @param {boolean} forceUpdate - Força scraping mesmo se tiver cache válido
+     */
+    async getOverallCalendar(forceUpdate = false) {
+        console.log('\n🌍 ===== CALENDAR CONTROLLER: Overall Calendar =====');
+        console.log(`🔄 Force Update: ${forceUpdate}`);
+
+        try {
+            if (!forceUpdate) {
+                // Tentar buscar do Firebase primeiro
+                console.log('📦 Tentando buscar overall do Firebase...');
+                const overallReleases = await calendarFirebaseService.getOverallCalendar();
+
+                if (overallReleases && overallReleases.length > 0) {
+                    console.log(`✅ Overall encontrado no Firebase (${overallReleases.length} lançamentos)`);
+                    return {
+                        source: 'firebase',
+                        timestamp: new Date().toISOString(),
+                        totalReleases: overallReleases.length,
+                        releases: overallReleases
+                    };
+                }
+            }
+
+            // Buscar filmes e séries
+            console.log('\n📦 Buscando filmes e séries...');
+            const movieReleases = await calendarFirebaseService.getMovieCalendar() || [];
+            const tvReleases = await calendarFirebaseService.getTvCalendar() || [];
+
+            if (movieReleases.length === 0 && tvReleases.length === 0) {
+                console.log('⚠️ Nenhum dado disponível. Execute os scrapers primeiro.');
+                return {
+                    source: 'empty',
+                    timestamp: new Date().toISOString(),
+                    totalReleases: 0,
+                    releases: []
+                };
+            }
+
+            // Salvar overall combinado
+            await calendarFirebaseService.saveOverallCalendar(movieReleases, tvReleases);
+
+            // Buscar o que foi salvo
+            const overallReleases = await calendarFirebaseService.getOverallCalendar();
+
+            console.log('✅ ===== OVERALL CALENDAR: Concluído =====\n');
+
+            return {
+                source: 'combined',
+                timestamp: new Date().toISOString(),
+                totalReleases: overallReleases.length,
+                releases: overallReleases
+            };
+
+        } catch (error) {
+            console.error('❌ Erro no Overall Calendar:', error.message);
+            throw error;
+        }
+    }
+
+    /**
      * Endpoint rápido - busca apenas do Firebase
      * GET /api/quick/calendar/movies
      */
@@ -185,6 +311,125 @@ export class CalendarController {
                 success: false,
                 error: error.message,
                 stack: error.stack
+            });
+        }
+    }
+
+    /**
+     * Endpoint rápido para séries - busca apenas do Firebase
+     * GET /api/quick/calendar/tv-shows
+     */
+    async getTvCalendarQuick(req, res) {
+        try {
+            console.log('\n⚡ QUICK CALENDAR (TV): Buscando do Firebase...');
+
+            const releases = await calendarFirebaseService.getTvCalendar();
+
+            if (!releases || releases.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Nenhum calendário de séries encontrado. Execute /api/calendar/tv-shows primeiro.',
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            res.json({
+                success: true,
+                source: 'firebase',
+                timestamp: new Date().toISOString(),
+                totalReleases: releases.length,
+                releases
+            });
+
+        } catch (error) {
+            console.error('❌ Erro no Quick Calendar (TV):', error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Endpoint rápido para overall - busca apenas do Firebase
+     * GET /api/quick/calendar/overall
+     */
+    async getOverallCalendarQuick(req, res) {
+        try {
+            console.log('\n⚡ QUICK CALENDAR (OVERALL): Buscando do Firebase...');
+
+            const releases = await calendarFirebaseService.getOverallCalendar();
+
+            if (!releases || releases.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Nenhum calendário overall encontrado.',
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            res.json({
+                success: true,
+                source: 'firebase',
+                timestamp: new Date().toISOString(),
+                totalReleases: releases.length,
+                releases
+            });
+
+        } catch (error) {
+            console.error('❌ Erro no Quick Calendar (Overall):', error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Endpoint para forçar scraping de séries
+     * GET /api/calendar/tv-shows?force=true
+     */
+    async getTvShows(req, res) {
+        try {
+            const forceUpdate = req.query.force === 'true';
+            const save = req.query.save !== 'false'; // Salva por padrão
+
+            const result = await this.getTvCalendar(forceUpdate, save);
+
+            res.json({
+                success: true,
+                ...result
+            });
+
+        } catch (error) {
+            console.error('❌ Erro ao obter calendário de séries:', error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Endpoint para calendário overall
+     * GET /api/calendar/overall?force=true
+     */
+    async getOverall(req, res) {
+        try {
+            const forceUpdate = req.query.force === 'true';
+
+            const result = await this.getOverallCalendar(forceUpdate);
+
+            res.json({
+                success: true,
+                ...result
+            });
+
+        } catch (error) {
+            console.error('❌ Erro ao obter calendário overall:', error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message
             });
         }
     }
