@@ -39,8 +39,9 @@ export class CalendarController {
             // Scraping incremental
             console.log('\n🌐 Iniciando scraping do IMDB...');
 
-            // Buscar dados existentes para comparação
-            const existingReleases = await calendarFirebaseService.getMovieCalendar() || [];
+            // CRITICAL: Buscar dados RAW (sem validação de expiração) para comparação
+            const existingReleases = await calendarFirebaseService.getRawMovieCalendar() || [];
+            console.log(`📊 Usando ${existingReleases.length} filmes existentes para comparação`);
 
             // Fazer scraping com lógica incremental
             releases = await imdbCalendarScraper.scrapeMovieCalendar(existingReleases);
@@ -102,8 +103,10 @@ export class CalendarController {
             // Importar scraper dinamicamente
             const { flixpatrolCalendarScraper } = await import('../scrapers/flixpatrolCalendarScraper.js');
 
-            // Buscar dados existentes para comparação
-            const existingReleases = await calendarFirebaseService.getTvCalendar() || [];
+            // CRITICAL: Buscar dados RAW (sem validação de expiração) para comparação
+            // Isso garante que mesmo em forceUpdate, preservamos TMDB IDs existentes
+            const existingReleases = await calendarFirebaseService.getRawTvCalendar() || [];
+            console.log(`📊 Usando ${existingReleases.length} lançamentos existentes para comparação`);
 
             // Fazer scraping com lógica incremental
             releases = await flixpatrolCalendarScraper.scrapeTvCalendar(existingReleases);

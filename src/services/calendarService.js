@@ -128,6 +128,35 @@ export class CalendarFirebaseService {
     }
 
     /**
+     * Buscar calendário de séries SEM checar expiração
+     * Usado para lógica de merge/comparação em force updates
+     * @returns {Promise<Array|null>}
+     */
+    async getRawTvCalendar() {
+        try {
+            const docRef = firebaseService.db
+                .collection(this.collectionName)
+                .doc('tv-shows');
+
+            const doc = await docRef.get();
+
+            if (!doc.exists) {
+                console.log('⚠️ Nenhum calendário de séries encontrado no Firebase (raw)');
+                return null;
+            }
+
+            const data = doc.data();
+            console.log(`📄 Dados raw encontrados: ${data.releases?.length || 0} lançamentos`);
+
+            return data.releases || [];
+
+        } catch (error) {
+            console.error('❌ Erro ao buscar calendário raw:', error.message);
+            return null;
+        }
+    }
+
+    /**
      * Salvar calendário overall (filmes + séries) ordenado por data
      * @param {Array} movieReleases - Lançamentos de filmes
      * @param {Array} tvReleases - Lançamentos de séries
@@ -255,6 +284,35 @@ export class CalendarFirebaseService {
 
         } catch (error) {
             console.error('❌ Erro ao buscar calendário:', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * Buscar calendário de filmes SEM checar expiração
+     * Usado para lógica de merge/comparação em force updates
+     * @returns {Promise<Array|null>}
+     */
+    async getRawMovieCalendar() {
+        try {
+            const docRef = firebaseService.db
+                .collection(this.collectionName)
+                .doc('movies');
+
+            const doc = await docRef.get();
+
+            if (!doc.exists) {
+                console.log('⚠️ Nenhum calendário de filmes encontrado no Firebase (raw)');
+                return null;
+            }
+
+            const data = doc.data();
+            console.log(`📄 Dados raw encontrados: ${data.releases?.length || 0} filmes`);
+
+            return data.releases || [];
+
+        } catch (error) {
+            console.error('❌ Erro ao buscar calendário raw:', error.message);
             return null;
         }
     }
