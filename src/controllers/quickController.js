@@ -10,11 +10,20 @@ export class QuickController {
      */
     formatItem(item, format) {
         if (format === 'id') {
+            // Tenta obter o tipo correto de todas as fontes possíveis
+            // 1. tmdb.type (se existir objeto tmdb)
+            // 2. tmdbMediaType (campo raiz que às vezes existe)
+            // 3. type (campo raiz, mas pode estar setado como "overall")
+            let type = item.tmdb?.type || item.tmdbMediaType || item.type;
+
+            // Tenta obter o ID correto, verifica no objeto tmdb ou na raiz
+            const tmdbId = item.tmdb?.tmdb_id || item.tmdb_id || null;
+
             return {
                 position: item.position,
                 title: item.title,
-                type: item.type || (item.tmdb?.type), // movie, tv, series
-                tmdb_id: item.tmdb?.tmdb_id || null
+                type: type, // movie ou tv
+                tmdb_id: tmdbId
             };
         }
         // Full format - retorna tudo
