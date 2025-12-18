@@ -13,6 +13,7 @@ export class QuickController {
             return {
                 position: item.position,
                 title: item.title,
+                type: item.type || (item.tmdb?.type), // movie, tv, series
                 tmdb_id: item.tmdb?.tmdb_id || null
             };
         }

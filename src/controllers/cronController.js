@@ -268,21 +268,26 @@ export class CronController {
                         }
 
                         // Verificar se ambos calendários estão frescos para criar overall
-                        const movieCalendar = servicesAge.find(s => s.service === 'calendar-movies');
-                        const tvCalendar = servicesAge.find(s => s.service === 'calendar-tv-shows');
+                        // IMPORTANTE: Só cria overall se o serviço atualizado foi um CALENDÁRIO
+                        const isCalendarUpdate = mostOutdated.service === 'calendar-movies' || mostOutdated.service === 'calendar-tv-shows';
 
-                        if (movieCalendar && tvCalendar && movieCalendar.hours < 6 && tvCalendar.hours < 6) {
-                            console.log('\n📅 Ambos calendários atualizados! Criando calendário overall...');
-                            try {
-                                await calendarController.getOverallCalendar(true);
-                                console.log('✅ Calendário overall criado!');
-                            } catch (overallError) {
-                                console.error('❌ Erro ao criar calendário overall:', overallError.message);
-                                await firebaseLoggingService.logError(
-                                    'calendar-overall',
-                                    'create_overall_calendar',
-                                    overallError
-                                );
+                        if (isCalendarUpdate) {
+                            const movieCalendar = servicesAge.find(s => s.service === 'calendar-movies');
+                            const tvCalendar = servicesAge.find(s => s.service === 'calendar-tv-shows');
+
+                            if (movieCalendar && tvCalendar && movieCalendar.hours < 6 && tvCalendar.hours < 6) {
+                                console.log('\n📅 Ambos calendários atualizados! Criando calendário overall...');
+                                try {
+                                    await calendarController.getOverallCalendar(true);
+                                    console.log('✅ Calendário overall criado!');
+                                } catch (overallError) {
+                                    console.error('❌ Erro ao criar calendário overall:', overallError.message);
+                                    await firebaseLoggingService.logError(
+                                        'calendar-overall',
+                                        'create_overall_calendar',
+                                        overallError
+                                    );
+                                }
                             }
                         }
                     }
