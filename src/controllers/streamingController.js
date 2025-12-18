@@ -118,7 +118,12 @@ export class StreamingController {
 
             // Cria ranking "overall" baseado em popularidade (combina movies + tvShows)
             console.log('📊 Criando ranking overall a partir dos 20 itens enriquecidos...');
-            const combined = [...movies, ...tvShows];
+
+            // CRITICAL: Garantir que movies tenham type='movie' e tvShows tenham type='tv'
+            const moviesWithType = movies.map(m => ({ ...m, type: 'movie' }));
+            const tvShowsWithType = tvShows.map(t => ({ ...t, type: 'tv' }));
+
+            const combined = [...moviesWithType, ...tvShowsWithType];
 
             // Ordena por popularidade (se disponível) ou mantém ordem original
             const overall = combined
@@ -144,9 +149,9 @@ export class StreamingController {
             const result = {
                 service: streamingConfig.name,
                 date: getTodayDate(),
-                overall,      // Top 10 baseado em popularidade (com TMDB se enriched)
-                movies,       // 10 filmes completos (com TMDB se enriched)
-                tvShows       // 10 séries completas (com TMDB se enriched)
+                overall,             // Top 10 baseado em popularidade (com type correto)
+                movies: moviesWithType,        // 10 filmes com type='movie'
+                tvShows: tvShowsWithType       // 10 séries com type='tv'
             };
 
             // Salva no Firebase automaticamente se solicitado
