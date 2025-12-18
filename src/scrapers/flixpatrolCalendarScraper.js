@@ -324,8 +324,30 @@ export class FlixPatrolCalendarScraper {
                         }
 
                         // Combinar data completa
-                        if (releaseDate && releaseYear) {
-                            releaseDate = `${releaseDate} ${releaseYear}`;
+                        // Se não tiver ano, assume ano corrente
+                        if (!releaseYear) {
+                            releaseYear = new Date().getFullYear().toString();
+                        }
+
+                        if (releaseDate) {
+                            // Converte "Dec 18" + "2025" -> "2025-12-18"
+                            try {
+                                const months = {
+                                    'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04', 'May': '05', 'Jun': '06',
+                                    'Jul': '07', 'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+                                };
+                                const parts = releaseDate.split(' '); // ["Dec", "18"]
+                                if (parts.length === 2 && months[parts[0]]) {
+                                    const month = months[parts[0]];
+                                    const day = parts[1].padStart(2, '0');
+                                    releaseDate = `${releaseYear}-${month}-${day}`;
+                                } else {
+                                    // Fallback se formato for diferente
+                                    releaseDate = `${releaseDate} ${releaseYear}`;
+                                }
+                            } catch (e) {
+                                releaseDate = `${releaseDate} ${releaseYear}`;
+                            }
                         }
                     }
 

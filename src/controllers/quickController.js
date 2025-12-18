@@ -19,11 +19,17 @@ export class QuickController {
             // Tenta obter o ID correto, verifica no objeto tmdb ou na raiz
             const tmdbId = item.tmdb?.tmdb_id || item.tmdb_id || null;
 
+            // Dados extras solicitados
+            const releaseDate = item.releaseDate || item.release_date || null;
+            const seasonInfo = item.season_info || item.seasonInfo || null;
+
             return {
                 position: item.position,
                 title: item.title,
+                releaseDate: releaseDate,
                 type: type, // movie ou tv
-                tmdb_id: tmdbId
+                tmdb_id: tmdbId,
+                season_info: seasonInfo
             };
         }
         // Full format - retorna tudo

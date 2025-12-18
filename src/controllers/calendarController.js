@@ -6,6 +6,43 @@ import { calendarFirebaseService } from '../services/calendarService.js';
  */
 export class CalendarController {
     /**
+     * Formata itens para retorno rápido
+     * @param {Array} items - Lista de itens
+     * @param {string} format - 'id' ou 'full'
+     * @param {string} defaultType - 'movie' ou 'tv' (opcional, fallback)
+     */
+    formatItems(items, format, defaultType = null) {
+        if (!items || items.length === 0) return [];
+        if (format !== 'id') return items;
+
+        return items.map(item => {
+            // Tenta obter o tipo correto
+            const type = item.type || item.tmdb?.type || defaultType;
+
+            // Tenta obter o ID correto
+            // Prioridade: tmdb.id (nested) > tmdb_id (flat) > id (root)
+            const tmdbId = item.tmdb?.id || item.tmdb_id || item.id || null;
+
+            // Data de lançamento
+            const releaseDate = item.releaseDate || item.release_date || null;
+
+            // Season Info com fallback para "estréia"
+            let seasonInfo = item.season_info || item.seasonInfo || null;
+            if (!seasonInfo) {
+                seasonInfo = "estréia";
+            }
+
+            return {
+                title: item.title,
+                releaseDate: releaseDate,
+                type: type,
+                tmdb_id: tmdbId,
+                season_info: seasonInfo
+            };
+        });
+    }
+
+    /**
      * Obter calendário de filmes com scraping incremental
      * GET /api/calendar/movies
      * 
@@ -217,7 +254,7 @@ export class CalendarController {
                 source: 'firebase',
                 timestamp: new Date().toISOString(),
                 totalReleases: releases.length,
-                releases
+                releases: this.formatItems(releases, req.query.format, 'movie')
             });
 
         } catch (error) {
@@ -341,7 +378,7 @@ export class CalendarController {
                 source: 'firebase',
                 timestamp: new Date().toISOString(),
                 totalReleases: releases.length,
-                releases
+                releases: this.formatItems(releases, req.query.format, 'tv')
             });
 
         } catch (error) {
@@ -376,7 +413,7 @@ export class CalendarController {
                 source: 'firebase',
                 timestamp: new Date().toISOString(),
                 totalReleases: releases.length,
-                releases
+                releases: this.formatItems(releases, req.query.format)
             });
 
         } catch (error) {

@@ -157,7 +157,7 @@ export class CalendarFirebaseService {
     }
 
     /**
-     * Salvar calendário overall (filmes + séries) ordenado por data
+     * Salva calendário overall (filmes + séries) ordenado por data
      * @param {Array} movieReleases - Lançamentos de filmes
      * @param {Array} tvReleases - Lançamentos de séries
      * @returns {Promise<boolean>}
@@ -166,16 +166,96 @@ export class CalendarFirebaseService {
         try {
             const today = this.getTodayDate();
 
-            // Combinar filmes e séries
-            const moviesWithType = movieReleases.map(r => ({ ...r, type: 'movie' }));
-            const tvWithType = tvReleases.map(r => ({ ...r, type: 'tv' }));
-            const combined = [...moviesWithType, ...tvWithType];
+            // Mapeamento de meses para parser de data PT-BR
+            const monthMap = {
+                'jan': '01', 'janeiro': '01', 'jan.': '01',
+                'fev': '02', 'fevereiro': '02', 'fev.': '02',
+                'mar': '03', 'março': '03', 'mar.': '03',
+                'abr': '04', 'abril': '04', 'abr.': '04',
+                'mai': '05', 'maio': '05', 'mai.': '05',
+                'jun': '06', 'junho': '06', 'jun.': '06',
+                'jul': '07', 'julho': '07', 'jul.': '07',
+                'ago': '08', 'agosto': '08', 'ago.': '08',
+                'set': '09', 'setembro': '09', 'set.': '09',
+                'out': '10', 'outubro': '10', 'out.': '10',
+                'nov': '11', 'novembro': '11', 'nov.': '11',
+                'dez': '12', 'dezembro': '12', 'dez.': '12'
+            };
+
+            // Normalizador de objetos
+            const normalize = (item, type) => {
+                // 1. Tenta padronizar a DATA (YYYY-MM-DD)
+                let releaseDate = item.releaseDate || item.release_date;
+
+                // Parser para data PT-BR ("06 de nov. de 2026")
+                if (releaseDate && releaseDate.includes(' de ')) {
+                    try {
+                        const match = releaseDate.match(/(\d{1,2})\s+de\s+(\w+\.?)(?:\s+de\s+(\d{4}))?/i);
+                        if (match) {
+                            const day = match[1].padStart(2, '0');
+                            const monthStr = match[2].toLowerCase();
+                            const year = match[3] || (item.year ? item.year.toString() : new Date().getFullYear().toString());
+                            const month = monthMap[monthStr];
+
+                            if (month) {
+                                releaseDate = `${year}-${month}-${day}`;
+                            }
+                        }
+                    } catch (e) {
+                        // Mantém original se falhar
+                    }
+                }
+                // Parser para data ISO ou data padrão
+                else if (releaseDate) {
+                    const dateObj = new Date(releaseDate);
+                    if (!isNaN(dateObj.getTime())) {
+                        releaseDate = dateObj.toISOString().split('T')[0];
+                    }
+                }
+
+                // 2. Tenta extrair dados TMDB (suporta estrutura nested ou flat)
+                // Nested: item.tmdb.id
+                // Flat: item.tmdb_id ou item.tmdb_name
+
+                const tmdbData = item.tmdb || {};
+
+                const tmdbId = tmdbData.id || item.tmdb_id || item.id || null;
+                const overview = tmdbData.overview || item.tmdb_overview || item.overview || '';
+                const posterPath = tmdbData.posterPath || tmdbData.poster_path || item.tmdb_poster_path || item.poster_path || null;
+                const backdropPath = tmdbData.backdropPath || tmdbData.backdrop_path || item.tmdb_backdrop_path || item.backdrop_path || null;
+                const originalTitle = tmdbData.originalTitle || tmdbData.original_title || item.tmdb_original_name || item.original_title || item.title;
+
+                // Season Info default
+                let seasonInfo = type === 'tv' ? (item.seasonInfo || item.season_info || null) : null;
+                if (!seasonInfo) {
+                    seasonInfo = "estréia";
+                }
+
+                return {
+                    title: item.title,
+                    original_title: originalTitle,
+                    releaseDate: releaseDate,
+                    type: type, // 'movie' ou 'tv'
+                    tmdb_id: tmdbId,
+                    overview: overview,
+                    poster_path: posterPath,
+                    backdrop_path: backdropPath,
+                    season_info: seasonInfo,
+                    genres: item.genres || []
+                };
+            };
+
+            // Combinar filmes e séries normalizados
+            const moviesNormalized = movieReleases.map(r => normalize(r, 'movie'));
+            const tvNormalized = tvReleases.map(r => normalize(r, 'tv'));
+            const combined = [...moviesNormalized, ...tvNormalized];
 
             // Ordenar por data (mais recente primeiro)
             combined.sort((a, b) => {
-                const dateA = new Date(a.releaseDate || a.release_date || 0);
-                const dateB = new Date(b.releaseDate || b.release_date || 0);
-                return dateA - dateB; // Crescente (mais próximo primeiro)
+                if (!a.releaseDate) return 1;
+                if (!b.releaseDate) return -1;
+                // String comparison works for ISO dates (YYYY-MM-DD)
+                return a.releaseDate.localeCompare(b.releaseDate);
             });
 
             console.log(`💾 Salvando calendário overall no Firebase...`);

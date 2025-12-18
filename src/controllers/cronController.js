@@ -246,35 +246,45 @@ export class CronController {
 
                     // Continua para verificar se deve criar overall/global
                     if (updateSuccess) {
-                        // Verifica se agora todos os STREAMINGS estão atualizados (< 3h) para criar global
-                        const streamingServices = servicesAge.filter(s => s.service !== 'calendar-movies' && s.service !== 'calendar-tv-shows');
-                        const allFreshAfterUpdate = streamingServices
-                            .filter(s => s.service !== mostOutdated.service)
-                            .every(s => s.hours < 3);
-
-                        if (allFreshAfterUpdate) {
-                            console.log('\n🌍 Todos os streamings atualizados! Criando rankings globais...');
-                            try {
-                                await streamingController.getGlobalTop10();
-                                console.log('✅ Rankings globais criados!');
-                            } catch (globalError) {
-                                console.error('❌ Erro ao criar rankings globais:', globalError.message);
-                                await firebaseLoggingService.logError(
-                                    'global',
-                                    'create_global_ranking',
-                                    globalError
-                                );
-                            }
+                        // 4. Atualizar o estado local do serviço que acabou de rodar
+                        // Isso garante que as verificações abaixo usem o dado "fresco"
+                        const updatedService = servicesAge.find(s => s.service === mostOutdated.service);
+                        if (updatedService) {
+                            updatedService.hours = 0; // Acabou de atualizar
+                            updatedService.overdueHours = -updatedService.expireThreshold; // Reset
                         }
 
-                        // Verificar se ambos calendários estão frescos para criar overall
-                        // IMPORTANTE: Só cria overall se o serviço atualizado foi um CALENDÁRIO
+                        // Verificar se foi update de calendário
                         const isCalendarUpdate = mostOutdated.service === 'calendar-movies' || mostOutdated.service === 'calendar-tv-shows';
 
-                        if (isCalendarUpdate) {
+                        if (!isCalendarUpdate) {
+                            // Verifica se agora todos os STREAMINGS estão atualizados (< 3h) para criar global
+                            const streamingServices = servicesAge.filter(s => s.service !== 'calendar-movies' && s.service !== 'calendar-tv-shows');
+                            const allFreshAfterUpdate = streamingServices
+                                .every(s => s.hours < 3);
+
+                            if (allFreshAfterUpdate) {
+                                console.log('\n🌍 Todos os streamings atualizados! Criando rankings globais...');
+                                try {
+                                    await streamingController.getGlobalTop10();
+                                    console.log('✅ Rankings globais criados!');
+                                } catch (globalError) {
+                                    console.error('❌ Erro ao criar rankings globais:', globalError.message);
+                                    await firebaseLoggingService.logError(
+                                        'global',
+                                        'create_global_ranking',
+                                        globalError
+                                    );
+                                }
+                            }
+                        } else {
+                            // É update de CALENDÁRIO
+                            // Verificar se ambos calendários estão frescos para criar overall
                             const movieCalendar = servicesAge.find(s => s.service === 'calendar-movies');
                             const tvCalendar = servicesAge.find(s => s.service === 'calendar-tv-shows');
 
+                            // Se ambos existirem e estiverem atualizados (hours < 6)
+                            // Nota: como acabamos de atualizar um deles e setamos hours=0, ele vai passar aqui
                             if (movieCalendar && tvCalendar && movieCalendar.hours < 6 && tvCalendar.hours < 6) {
                                 console.log('\n📅 Ambos calendários atualizados! Criando calendário overall...');
                                 try {
