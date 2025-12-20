@@ -104,10 +104,10 @@ export class CalendarController {
     }
 
     /**
-     * Obter calendário de séries com scraping incremental
+     * Obter calendário de séries usando TMDB API
      * GET /api/calendar/tv-shows
      * 
-     * @param {boolean} forceUpdate - Força scraping mesmo se tiver cache válido
+     * @param {boolean} forceUpdate - Força busca mesmo se tiver cache válido
      * @param {boolean} save - Salvar resultado no Firebase
      */
     async getTvCalendar(forceUpdate = false, save = true) {
@@ -134,19 +134,14 @@ export class CalendarController {
                 }
             }
 
-            // Scraping incremental
-            console.log('\n🌐 Iniciando scraping do FlixPatrol...');
+            // Buscar diretamente do TMDB
+            console.log('\n🌐 Buscando do TMDB API...');
 
-            // Importar scraper dinamicamente
-            const { flixpatrolCalendarScraper } = await import('../scrapers/flixpatrolCalendarScraper.js');
+            // Importar serviço TMDB
+            const { tmdbCalendarService } = await import('../services/tmdbCalendarService.js');
 
-            // CRITICAL: Buscar dados RAW (sem validação de expiração) para comparação
-            // Isso garante que mesmo em forceUpdate, preservamos TMDB IDs existentes
-            const existingReleases = await calendarFirebaseService.getRawTvCalendar() || [];
-            console.log(`📊 Usando ${existingReleases.length} lançamentos existentes para comparação`);
-
-            // Fazer scraping com lógica incremental
-            releases = await flixpatrolCalendarScraper.scrapeTvCalendar(existingReleases);
+            // Fazer busca direta no TMDB (novas séries + novas temporadas)
+            releases = await tmdbCalendarService.fetchTvCalendar();
 
             // Salvar no Firebase se solicitado
             if (save) {
@@ -156,7 +151,7 @@ export class CalendarController {
             console.log('✅ ===== CALENDAR CONTROLLER: Concluído =====\n');
 
             return {
-                source: 'scraping',
+                source: 'tmdb',
                 timestamp: new Date().toISOString(),
                 totalReleases: releases.length,
                 releases
