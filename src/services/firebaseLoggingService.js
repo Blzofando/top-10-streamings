@@ -1,3 +1,4 @@
+import admin from 'firebase-admin';
 import { firebaseService } from './firebaseService.js';
 
 /**
@@ -48,7 +49,7 @@ class FirebaseLoggingService {
                 error_name: error.name || 'Error',
                 stack: error.stack || null,
                 details,
-                timestamp_firestore: firebaseService.admin.firestore().FieldValue.serverTimestamp()
+                timestamp_firestore: admin.firestore.FieldValue.serverTimestamp()
             };
 
             await firebaseService.db.collection(this.collection).add(logData);
@@ -77,7 +78,7 @@ class FirebaseLoggingService {
                 operation,
                 message,
                 details,
-                timestamp_firestore: firebaseService.admin.firestore().FieldValue.serverTimestamp()
+                timestamp_firestore: admin.firestore.FieldValue.serverTimestamp()
             };
 
             await firebaseService.db.collection(this.collection).add(logData);

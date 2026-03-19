@@ -117,7 +117,15 @@ export class StreamingController {
                             console.log(`🔍 [${count}/${list.length}] Enriquecendo ${typeName}: ${item.title}`);
 
                             if (item.link) {
-                                const details = await scraper.scrapeItemDetails(item.link);
+                                let details = {};
+                                try {
+                                    // Tenta primeiramente o scraper leve (incrivelmente mais rápido)
+                                    details = await lightScraper.scrapeItemDetails(item.link);
+                                } catch (lightErr) {
+                                    console.warn(`  ⚠️ LightScraper falhou para detalhes, usando Fallback (Puppeteer): ${lightErr.message}`);
+                                    details = await scraper.scrapeItemDetails(item.link);
+                                }
+                                
                                 if (details.year) item.year = details.year;
                                 if (details.type) item.type = details.type;
                                 if (details.original_title) item.title = details.original_title;

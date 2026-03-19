@@ -363,6 +363,9 @@ export class FlixPatrolScraper {
      * Método interno para extrair detalhes (usado pelo retry)
      */
     async _scrapeItemDetailsInternal(url) {
+        // Garante que o Chromium está inicializado antes de criar a página
+        await this.initialize();
+
         // Abre nova aba para não interferir
         const page = await this.browser.newPage();
 

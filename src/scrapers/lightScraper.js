@@ -263,6 +263,51 @@ class LightScraper {
             remainingCooldown: this.circuitBreaker.getRemainingCooldown()
         };
     }
+
+    /**
+     * Extrai detalhes de um item usando Axios e Cheerio (sem Puppeteer)
+     * @param {string} url - URL do detalhe no FlixPatrol
+     * @returns {Promise<Object>} Dados detalhados (ano, tipo, titulo)
+     */
+    async scrapeItemDetails(url) {
+        try {
+            const response = await axios.get(url, {
+                timeout: 10000,
+                headers: {
+                    'User-Agent': getRandomUserAgent(),
+                    'Accept': 'text/html',
+                    'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+                    'Connection': 'keep-alive'
+                }
+            });
+            const $ = cheerio.load(response.data);
+            const result = {};
+            
+            // Extrai ano de estreia (Premiere)
+            const premiereSpan = $('div[title="Premiere"] span');
+            if (premiereSpan.length) {
+                const fullText = premiereSpan.parent().text().trim();
+                const yearMatch = fullText.match(/(\d{4})$/);
+                if (yearMatch) result.year = parseInt(yearMatch[1], 10);
+            }
+            
+            // Extrai Tipo (TV Show / Movie)
+            $('div[title]').each((_, el) => {
+                const text = $(el).text().toLowerCase();
+                if (text.includes('tv show')) result.type = 'tv';
+                else if (text.includes('movie')) result.type = 'movie';
+            });
+            
+            // Original Title (H1)
+            const h1 = $('h1').first().text().trim();
+            if (h1) result.original_title = h1;
+            
+            return result;
+        } catch (error) {
+            console.error(`❌ [LightScraper] Erro ao extrair detalhes de ${url}:`, error.message);
+            throw error;
+        }
+    }
 }
 
 // Exporta instância singleton + funções de lock
