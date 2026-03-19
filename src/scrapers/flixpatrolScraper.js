@@ -134,6 +134,11 @@ export class FlixPatrolScraper {
                     console.error(`❌ Tentativa ${attempt} falhou:`, error.message);
                 }
 
+                // CRÍTICO: Recicla o browser corrompido antes de tentar novamente
+                // Sem isso, tentativas 2 e 3 falham 100% das vezes (browser zumbi)
+                console.log('🔄 [Puppeteer] Reciclando browser corrompido...');
+                await this.close();
+
                 if (attempt < maxRetries) {
                     const delay = backoffDelays[attempt - 1];
                     console.log(`⏳ Aguardando ${delay / 1000}s antes de tentar novamente...`);

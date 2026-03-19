@@ -4,6 +4,7 @@ import { calendarController } from '../controllers/calendarController.js';
 import { calendarFirebaseService } from '../services/calendarService.js';
 import { getTodayDate } from '../config/streamingServices.js';
 import { firebaseLoggingService } from '../services/firebaseLoggingService.js';
+import { lightScraper } from '../scrapers/lightScraper.js';
 
 /**
  * Controller para operações de cron jobs
@@ -327,7 +328,8 @@ export class CronController {
         res.json({
             status: 'ok',
             timestamp: new Date().toISOString(),
-            message: 'Cron controller funcionando'
+            message: 'Cron controller funcionando',
+            circuitBreaker: lightScraper.getCircuitState()
         });
     }
 }

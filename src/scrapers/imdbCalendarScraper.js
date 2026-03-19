@@ -1,317 +1,342 @@
 import axios from 'axios';
-import * as cheerio from 'cheerio';
-import { compareTwoStrings } from 'string-similarity';
 
 /**
- * Scraper para calendário de lançamentos do IMDB (usando Cheerio - LEVE!)
- * URL: https://www.imdb.com/pt/calendar/?region=BR&type=MOVIE
+ * Scraper para calendário de lançamentos de filmes no Brasil
+ * FONTE: TMDB API (/movie/upcoming + /discover/movie)
+ * 
+ * NOTA HISTÓRICA: Anteriormente usava scraping do IMDB com Cheerio,
+ * mas o IMDB implementou AWS WAF (captcha/challenge) que bloqueia
+ * requisições HTTP puras. Migrado para TMDB API em Março/2026.
  */
 export class ImdbCalendarScraper {
     constructor() {
-        this.url = 'https://www.imdb.com/pt/calendar/?region=BR&type=MOVIE';
-        this.tmdbApiKey = process.env.TMDB_API_KEY_2;
+        this.tmdbApiKey = process.env.TMDB_API_KEY_2 || process.env.TMDB_API_KEY;
         this.tmdbBaseUrl = 'https://api.themoviedb.org/3';
     }
 
     /**
-     * Scraping principal com lógica incremental (CHEERIO - sem Puppeteer!)
-     * @param {Array} existingReleases - Títulos já existentes no Firebase
+     * Busca calendário de filmes com lançamento no Brasil
+     * Combina /movie/upcoming (curado) + /discover/movie (abrangente)
+     * 
+     * @param {Array} existingReleases - Títulos já existentes no Firebase (para lógica incremental)
      * @returns {Promise<Array>} Array de filmes com dados TMDB
      */
     async scrapeMovieCalendar(existingReleases = []) {
-        console.log('\n🎬 ===== IMDB CALENDAR SCRAPER (Cheerio): Iniciando =====');
-        console.log(`📅 URL: ${this.url}`);
+        console.log('\n🎬 ===== MOVIE CALENDAR (TMDB API): Iniciando =====');
+
+        if (!this.tmdbApiKey) {
+            throw new Error('TMDB_API_KEY não configurada no .env');
+        }
 
         try {
-            // HTTP Request simples - Memória ~10-20MB (vs ~400MB do Puppeteer)
-            console.log('🌐 Fazendo request HTTP...');
-            const response = await axios.get(this.url, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-                },
-                timeout: 30000
-            });
+            // 1. Buscar filmes upcoming (endpoint curado — filmes populares próximos)
+            console.log('📡 Buscando /movie/upcoming (BR)...');
+            const upcomingMovies = await this._fetchUpcoming();
+            console.log(`  ✅ Upcoming: ${upcomingMovies.length} filmes`);
 
-            console.log('📖 Parseando HTML com Cheerio...');
-            const $ = cheerio.load(response.data);
+            // 2. Buscar filmes via discover (mais abrangente, pega filmes menores)
+            console.log('📡 Buscando /discover/movie (BR, próximos 60 dias)...');
+            const discoverMovies = await this._fetchDiscover();
+            console.log(`  ✅ Discover: ${discoverMovies.length} filmes`);
 
-            const rawReleases = [];
+            // 3. Combinar e deduplicar os novos resultados
+            const currentFetchedMovies = this._mergeAndDeduplicate(upcomingMovies, discoverMovies);
+            console.log(`📊 Total extraído da API (sem duplicatas): ${currentFetchedMovies.length} filmes`);
 
-            // Procurar por seções de data (calendar-section)
-            const dateSections = $('article[data-testid="calendar-section"]');
-
-            console.log(`✅ Encontradas ${dateSections.length} seções de data`);
-
-            dateSections.each((index, section) => {
-                const $section = $(section);
-
-                // Pegar a data do h3 dentro da seção
-                const dateText = $section.find('h3.ipc-title__text').text().trim();
-
-                if (!dateText) {
-                    console.log('⚠️ Seção sem data encontrada');
-                    return;
-                }
-
-                console.log(`📅 Processando data: ${dateText}`);
-
-                // Pegar todos os filmes dessa seção
-                const movieItems = $section.find('li[data-testid="coming-soon-entry"]');
-                console.log(`  📽️ ${movieItems.length} filmes encontrados`);
-
-                movieItems.each((idx, item) => {
-                    const $item = $(item);
-
-                    // Título está no link com classe ipc-metadata-list-summary-item__t
-                    const $titleLink = $item.find('a.ipc-metadata-list-summary-item__t');
-                    if ($titleLink.length === 0) return;
-
-                    let title = $titleLink.text().trim();
-
-                    // Extrair ano se estiver entre parênteses no título
-                    const yearMatch = title.match(/\((\d{4})\)/);
-                    const year = yearMatch ? parseInt(yearMatch[1]) : null;
-
-                    // Remover ano do título
-                    if (yearMatch) {
-                        title = title.replace(/\s*\(\d{4}\)/, '').trim();
-                    }
-
-                    // Pegar o href para extrair IMDB ID
-                    const href = $titleLink.attr('href');
-                    const imdbIdMatch = href && href.match(/\/title\/(tt\d+)/);
-                    const imdbId = imdbIdMatch ? imdbIdMatch[1] : null;
-
-                    // Extrair gêneros
-                    const genres = [];
-                    $item.find('.ipc-metadata-list-summary-item__tl .ipc-metadata-list-summary-item__li').each((i, el) => {
-                        genres.push($(el).text().trim());
-                    });
-
-                    // Extrair atores (top 4)
-                    const actors = [];
-                    $item.find('.ipc-metadata-list-summary-item__stl .ipc-metadata-list-summary-item__li').each((i, el) => {
-                        if (i < 4) actors.push($(el).text().trim());
-                    });
-
-                    rawReleases.push({
-                        title,
-                        releaseDate: dateText,
-                        year,
-                        imdbId,
-                        genres,
-                        actors
-                    });
-                });
-            });
-
-            console.log(`📦 Total extraído do IMDB: ${rawReleases.length} filmes`);
-
-            // Filtrar apenas futuros (remover lançamentos que já passaram)
+            // 4. Filtrar apenas lançamentos futuros dos recém-extraídos
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            const futureReleases = rawReleases.filter(movie => {
-                const releaseDate = this.parseBrazilianDate(movie.releaseDate);
-                return releaseDate && releaseDate >= today;
+            const futureFetchedMovies = currentFetchedMovies.filter(movie => {
+                if (!movie.releaseDate) return false;
+                const releaseDate = new Date(movie.releaseDate);
+                return releaseDate >= today;
             });
 
-            console.log(`📅 Lançamentos futuros: ${futureReleases.length} filmes`);
+            // 5. Lógica incremental: mesclar com banco existente e identificar novidades
+            const { merged, newReleases } = this._mergeWithExisting(futureFetchedMovies, existingReleases, today);
+            console.log(`📅 Total de filmes em base (futuros): ${merged.length}`);
+            console.log(`🆕 Novos lançamentos identificados: ${newReleases.length}`);
 
-            // Identificar novidades (lógica incremental)
-            const newReleases = this.findNewReleases(futureReleases, existingReleases);
-            console.log(`🆕 Novos lançamentos para processar: ${newReleases.length}`);
+            // 6. Buscar detalhes extras SOMENTE para novos filmes (gêneros em PT-BR, etc.)
+            console.log(`\n🎯 Enriquecendo ${newReleases.length} filmes novos com detalhes...`);
+            const enrichedMovies = await this._enrichNewMovies(merged, newReleases);
 
-            // Enriquecer com TMDB
-            const enrichedReleases = await this.enrichWithTmdb(futureReleases, newReleases);
+            console.log(`✅ Total final: ${enrichedMovies.length} filmes`);
+            console.log('✅ ===== MOVIE CALENDAR (TMDB API): Concluído =====\n');
 
-            console.log(`✅ Total final: ${enrichedReleases.length} filmes`);
-            console.log('✅ ===== IMDB CALENDAR SCRAPER: Concluído =====\n');
-
-            return enrichedReleases;
+            return enrichedMovies;
 
         } catch (error) {
-            console.error('❌ Erro no IMDB Calendar Scraper:', error.message);
+            console.error('❌ Erro no Movie Calendar (TMDB):', error.message);
             throw error;
         }
     }
 
     /**
-     * Parser de datas brasileiras do IMDB
-     * Suporta formatos como: "18 de dez. de 2025", "25 de dezembro de 2025"
+     * Busca filmes do /movie/upcoming (curado pelo TMDB, só filmes relevantes)
+     * @returns {Promise<Array>}
      */
-    parseBrazilianDate(dateStr) {
-        if (!dateStr) return null;
+    async _fetchUpcoming() {
+        const movies = [];
+        const maxPages = 3;
 
-        try {
-            // Mapeamento de meses brasileiros (completos e abreviados)
-            const monthMap = {
-                'jan': 0, 'janeiro': 0, 'jan.': 0,
-                'fev': 1, 'fevereiro': 1, 'fev.': 1,
-                'mar': 2, 'março': 2, 'mar.': 2,
-                'abr': 3, 'abril': 3, 'abr.': 3,
-                'mai': 4, 'maio': 4, 'mai.': 4,
-                'jun': 5, 'junho': 5, 'jun.': 5,
-                'jul': 6, 'julho': 6, 'jul.': 6,
-                'ago': 7, 'agosto': 7, 'ago.': 7,
-                'set': 8, 'setembro': 8, 'set.': 8,
-                'out': 9, 'outubro': 9, 'out.': 9,
-                'nov': 10, 'novembro': 10, 'nov.': 10,
-                'dez': 11, 'dezembro': 11, 'dez.': 11
-            };
+        for (let page = 1; page <= maxPages; page++) {
+            try {
+                const response = await axios.get(`${this.tmdbBaseUrl}/movie/upcoming`, {
+                    params: {
+                        api_key: this.tmdbApiKey,
+                        language: 'pt-BR',
+                        region: 'BR',
+                        page
+                    },
+                    timeout: 10000
+                });
 
-            // Regex para capturar: "18 de dez. de 2025" ou "18 de dezembro"
-            const match = dateStr.match(/(\d{1,2})\s+de\s+(\w+\.?)(?:\s+de\s+(\d{4}))?/i);
+                if (!response.data.results || response.data.results.length === 0) break;
 
-            if (!match) {
-                console.warn(`⚠️ Formato de data não reconhecido: ${dateStr}`);
-                return null;
+                for (const m of response.data.results) {
+                    movies.push(this._formatMovie(m, 'upcoming'));
+                }
+
+                if (page >= response.data.total_pages) break;
+
+            } catch (error) {
+                console.warn(`  ⚠️ Erro na página ${page} do upcoming: ${error.message}`);
+                break;
             }
-
-            const day = parseInt(match[1]);
-            const monthStr = match[2].toLowerCase();
-            const year = match[3] ? parseInt(match[3]) : new Date().getFullYear();
-
-            const month = monthMap[monthStr];
-
-            if (month === undefined) {
-                console.warn(`⚠️ Mês não reconhecido: ${monthStr}`);
-                return null;
-            }
-
-            return new Date(year, month, day);
-
-        } catch (error) {
-            console.error(`❌ Erro ao parsear data "${dateStr}":`, error.message);
-            return null;
         }
+
+        return movies;
     }
 
     /**
-     * Identificar novidades comparando com existentes
+     * Busca filmes via /discover/movie (mais abrangente, filmes BR próximos 60 dias)
+     * @returns {Promise<Array>}
      */
-    findNewReleases(currentReleases, existingReleases) {
+    async _fetchDiscover() {
+        const movies = [];
+
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        const futureDate = new Date(today);
+        futureDate.setDate(futureDate.getDate() + 60);
+        const futureDateStr = futureDate.toISOString().split('T')[0];
+
+        const maxPages = 3;
+
+        for (let page = 1; page <= maxPages; page++) {
+            try {
+                const response = await axios.get(`${this.tmdbBaseUrl}/discover/movie`, {
+                    params: {
+                        api_key: this.tmdbApiKey,
+                        language: 'pt-BR',
+                        region: 'BR',
+                        'primary_release_date.gte': todayStr,
+                        'primary_release_date.lte': futureDateStr,
+                        sort_by: 'popularity.desc',
+                        'vote_count.gte': 0,
+                        page
+                    },
+                    timeout: 10000
+                });
+
+                if (!response.data.results || response.data.results.length === 0) break;
+
+                for (const m of response.data.results) {
+                    // Filtrar filmes com popularidade mínima (excluir obscuros)
+                    if (m.popularity >= 1.0) {
+                        movies.push(this._formatMovie(m, 'discover'));
+                    }
+                }
+
+                if (page >= response.data.total_pages) break;
+
+            } catch (error) {
+                console.warn(`  ⚠️ Erro na página ${page} do discover: ${error.message}`);
+                break;
+            }
+        }
+
+        return movies;
+    }
+
+    /**
+     * Formata um filme da API TMDB para nosso formato padrão
+     * @param {Object} m - Objeto do TMDB
+     * @param {string} source - 'upcoming' ou 'discover'
+     * @returns {Object}
+     */
+    _formatMovie(m, source) {
+        return {
+            title: m.title,
+            originalTitle: m.original_title,
+            releaseDate: m.release_date,
+            year: m.release_date ? parseInt(m.release_date.split('-')[0]) : null,
+            tmdb: {
+                id: m.id,
+                title: m.title,
+                originalTitle: m.original_title,
+                posterPath: m.poster_path,
+                backdropPath: m.backdrop_path,
+                overview: m.overview,
+                voteAverage: m.vote_average,
+                popularity: m.popularity,
+                releaseDate: m.release_date,
+                genreIds: m.genre_ids || []
+            },
+            matched: true,
+            releaseDateSource: `tmdb-${source}`,
+            type: 'movie'
+        };
+    }
+
+    /**
+     * Combina e deduplica listas de filmes (upcoming tem prioridade)
+     * @param {Array} upcoming - Filmes do /movie/upcoming
+     * @param {Array} discover - Filmes do /discover/movie
+     * @returns {Array}
+     */
+    _mergeAndDeduplicate(upcoming, discover) {
+        const seen = new Set();
+        const merged = [];
+
+        // Upcoming primeiro (prioridade)
+        for (const movie of upcoming) {
+            const key = movie.tmdb.id;
+            if (!seen.has(key)) {
+                seen.add(key);
+                merged.push(movie);
+            }
+        }
+
+        // Discover depois (complementar)
+        for (const movie of discover) {
+            const key = movie.tmdb.id;
+            if (!seen.has(key)) {
+                seen.add(key);
+                merged.push(movie);
+            }
+        }
+
+        // Ordenar por data de lançamento
+        return merged.sort((a, b) => {
+            const dateA = new Date(a.releaseDate || '9999-12-31');
+            const dateB = new Date(b.releaseDate || '9999-12-31');
+            return dateA - dateB;
+        });
+    }
+
+    /**
+     * Mescla as novas extrações com os filmes já existentes no Firebase.
+     * Mantém os filmes antigos (preservando o `runtime`, `genres` enriquecidos, etc),
+     * desde que ainda sejam lançamentos futuros, e adiciona as novidades.
+     */
+    _mergeWithExisting(currentFetchedMovies, existingReleases, today) {
         if (!existingReleases || existingReleases.length === 0) {
-            return currentReleases; // Tudo é novo
+            return { merged: currentFetchedMovies, newReleases: currentFetchedMovies };
+        }
+
+        const mergedMap = new Map();
+        
+        // 1. Adiciona todos os lançamentos existentes no Map (preservando o cache)
+        for (const existing of existingReleases) {
+            // Filtra o banco antigo para não acumular filmes passados infinitamente
+            if (existing.releaseDate) {
+                const releaseDate = new Date(existing.releaseDate);
+                if (releaseDate < today) continue;
+            }
+
+            // A chave prioritária é o TMDB ID. Fallback para Titulo+Data.
+            const key = existing.tmdb_id || existing.tmdb?.id || (existing.originalTitle || existing.title);
+            if (key) {
+                mergedMap.set(key, existing);
+            }
         }
 
         const newReleases = [];
-
-        for (const current of currentReleases) {
-            const exists = existingReleases.find(existing =>
-                existing.title === current.title &&
-                existing.releaseDate === current.releaseDate
-            );
-
-            if (!exists) {
+        
+        // 2. Processa os novos fetches da API
+        for (const current of currentFetchedMovies) {
+            const key = current.tmdb?.id || (current.originalTitle || current.title);
+            
+            if (!mergedMap.has(key)) {
+                // É um filme novo que não tínhamos no cache!
+                mergedMap.set(key, current);
                 newReleases.push(current);
+            } else {
+                // Já existe. Mantemos o `existing` no map, pois ele já tem `genres` e `runtime` ricos,
+                // mas podemos atualizar a data de lançamento caso o TMDB tenha alterado recentemente.
+                const existing = mergedMap.get(key);
+                if (existing.releaseDate !== current.releaseDate) {
+                    existing.releaseDate = current.releaseDate;
+                    if (existing.tmdb) existing.tmdb.releaseDate = current.releaseDate;
+                }
             }
         }
 
-        return newReleases;
+        // Ordenar por data de lançamento
+        const mergedArray = Array.from(mergedMap.values()).sort((a, b) => {
+            const dateA = new Date(a.releaseDate || '9999-12-31');
+            const dateB = new Date(b.releaseDate || '9999-12-31');
+            return dateA - dateB;
+        });
+
+        return {
+            merged: mergedArray,
+            newReleases
+        };
     }
 
-    /**
-     * Enriquecer com dados do TMDB
-     */
-    async enrichWithTmdb(allReleases, newReleases) {
-        console.log(`\n🎯 Enriquecendo ${newReleases.length} filmes com TMDB...`);
+    async _enrichNewMovies(allMovies, newMovies) {
+        // Mapeia IDs ou Títulos dos filmes novos para busca rápida
+        const newIds = new Set(newMovies.map(m => m.tmdb?.id || m.originalTitle || m.title));
+        const results = [];
 
-        const enrichedResults = [];
-
-        for (const release of allReleases) {
-            // Se não é novo, só adiciona com matched=true (já está enriquecido)
-            const isNew = newReleases.some(nr => nr.title === release.title && nr.releaseDate === release.releaseDate);
-
-            if (!isNew) {
-                enrichedResults.push({
-                    ...release,
-                    matched: true,
-                    releaseDateSource: 'imdb-br'
-                });
+        for (const movie of allMovies) {
+            const key = movie.tmdb?.id || movie.tmdb_id || movie.originalTitle || movie.title;
+            
+            if (!newIds.has(key)) {
+                // Filme já existente (e já devidamente enriquecido anteriormente) — manter como está
+                results.push(movie);
                 continue;
             }
 
-            // É novo: buscar no TMDB
-            const tmdbData = await this.searchTmdb(release.title, release.year, release.genres, release.actors);
+            // Filme novo — buscar detalhes extras
+            try {
+                const details = await axios.get(`${this.tmdbBaseUrl}/movie/${movie.tmdb.id}`, {
+                    params: {
+                        api_key: this.tmdbApiKey,
+                        language: 'pt-BR'
+                    },
+                    timeout: 10000
+                });
 
-            enrichedResults.push({
-                ...release,
-                tmdb: tmdbData,
-                matched: !!tmdbData,
-                releaseDateSource: 'imdb-br' // SEMPRE preserva a data do IMDB BR
-            });
+                const d = details.data;
+                movie.genres = (d.genres || []).map(g => g.name);
+                movie.tmdb.runtime = d.runtime;
+                movie.tmdb.tagline = d.tagline;
+                movie.tmdb.genres = movie.genres;
 
-            // Delay para não bater rate limit do TMDB
-            await this.delay(250);
+                console.log(`  ✅ ${movie.title} (${movie.releaseDate}) — ${movie.genres.join(', ')}`);
+
+            } catch (error) {
+                console.warn(`  ⚠️ Detalhes não encontrados para "${movie.title}": ${error.message}`);
+            }
+
+            results.push(movie);
+
+            // Rate limit TMDB: 40 req/10s
+            await this._delay(260);
         }
 
-        return enrichedResults;
-    }
-
-    /**
-     * Buscar filme no TMDB
-     */
-    async searchTmdb(title, year, genres = [], actors = []) {
-        try {
-            console.log(`  🔍 Buscando: ${title} (${year})`);
-
-            // Limpar título (remover ano e caracteres extras entre parênteses)
-            const cleanTitle = title.replace(/\s*\([^)]*\)/g, '').trim();
-
-            // Primeira tentativa: com ano
-            let searchUrl = `${this.tmdbBaseUrl}/search/movie?api_key=${this.tmdbApiKey}&language=pt-BR&query=${encodeURIComponent(cleanTitle)}${year ? `&year=${year}` : ''}`;
-            let response = await axios.get(searchUrl, { timeout: 10000 });
-
-            // Se não encontrou, tentar sem ano
-            if (!response.data.results || response.data.results.length === 0) {
-                searchUrl = `${this.tmdbBaseUrl}/search/movie?api_key=${this.tmdbApiKey}&language=pt-BR&query=${encodeURIComponent(cleanTitle)}`;
-                response = await axios.get(searchUrl, { timeout: 10000 });
-            }
-
-            if (!response.data.results || response.data.results.length === 0) {
-                console.log(`  ⚠️ Não encontrado no TMDB: ${title}`);
-                return null;
-            }
-
-            // Se múltiplos resultados, tentar encontrar o mais próximo ao ano
-            let bestMatch = response.data.results[0];
-
-            if (year && response.data.results.length > 1) {
-                for (const result of response.data.results) {
-                    const resultYear = result.release_date ? parseInt(result.release_date.split('-')[0]) : null;
-                    if (resultYear && Math.abs(resultYear - year) <= 1) {
-                        bestMatch = result;
-                        break;
-                    }
-                }
-            }
-
-            console.log(`  ✅ ${title} → TMDB ID: ${bestMatch.id}`);
-
-            return {
-                id: bestMatch.id,
-                title: bestMatch.title,
-                originalTitle: bestMatch.original_title,
-                posterPath: bestMatch.poster_path,
-                backdropPath: bestMatch.backdrop_path,
-                overview: bestMatch.overview,
-                voteAverage: bestMatch.vote_average,
-                releaseDate: bestMatch.release_date
-            };
-
-        } catch (error) {
-            console.error(`  ❌ Erro ao buscar "${title}" no TMDB:`, error.message);
-            return null;
-        }
+        return results;
     }
 
     /**
      * Delay helper
      */
-    delay(ms) {
+    _delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
