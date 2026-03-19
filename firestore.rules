@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+       // Permite leitura para qualquer usuário logado (a lógica de aprovação ocorre no frontend)
+      allow read: if request.auth != null;
+      // Impede gravação (apenas a API Master grava via Admin SDK)
+      allow write: if false; 
+    }
+  }
+}

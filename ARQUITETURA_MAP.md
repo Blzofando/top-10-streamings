@@ -44,12 +44,13 @@ Request → Controller.getTop10()
 ```
 
 ## 5. Segurança e Acesso
-- **`apiKeyMiddleware.js`**: `User Key` (leitura) | `Master Key` (scraping/cron).
-- **`adminAuth.js`**: Exige `X-Admin-Secret` para `/api/admin`.
-- Todas as interações via chaves HTTP no backend (sem login frontend).
+- **API Keys (`apiKeyMiddleware.js`)**: `User Key` (leitura via API) | `Master Key` (scraping/cron).
+- **Acesso Admin (`adminAuth.js`)**: Exige `X-Admin-Secret` para `/api/admin`.
+- **Acesso Cliente (Firestore SDK)**: O acesso direto de apps à base de dados de leitura (ex: cinegenio2026) exige apenas `request.auth != null` (login válido). A camada do Frontend é responsável por validar e barrar contas recém-criadas ou não aprovadas manualmente.
 
 ## 6. Banco de Dados (Firebase Firestore)
-- Collection `top10-streaming/{service}/{type-date}/{position}`
+- **Banco de Extração (flixpatrol-api):** Totalmente trancado (`allow read, write: if false;`). Interação apenas via Admin SDK na API Node.
+- **Banco de Leitura Cliente:** Bases acopladas à API User (como cinegenio2026) recebem as atualizações que a API injeta.
 - Auto-limpeza: mantém apenas dados do dia atual.
 - Método `getLatestTop10()` busca último snapshot válido (fallback).
 
@@ -60,3 +61,14 @@ Request → Controller.getTop10()
 - `ADMIN_SECRET`: Chave mestre para `/api/admin`
 
 *(Mapa atualizado automaticamente conforme diretriz obrigatória de AUTO-DOCUMENTAÇÃO)*
+
+## 8. Resolução de Entidades (Matching)
+**Arquivo:** `src/services/tmdbService.js`
+A correspondência entre títulos Raspados (FlixPatrol) e Metadados (TMDB) utiliza uma arquitetura de pipeline em 3 etapas para garantir precisão:
+1. **Multi-Query Searching:** Dispara variações do título (limpo, original, e específicos).
+2. **Candidate Ranking:** Sistema de score ponderado (45% Similaridade de String Dice, 25% Popularidade Logarítmica, 15% Ano, 15% Tipo).
+3. **Supplementary Filter:** Penalização inteligente para conteúdos "Bonus/Extra".
+4. **Persistence:** Cache e aprendizado para IDs persistentes (TMDB ID).
+
+---
+**Mapa Atualizado em:** 19/03/2026 - 20:45 por Antigravity.

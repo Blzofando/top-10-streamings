@@ -1,23 +1,21 @@
 import dotenv from 'dotenv';
+import stringSimilarity from 'string-similarity';
+import NodeCache from 'node-cache';
+
 dotenv.config();
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
+// Cache para persistência de matches (Entity Resolution)
+const entityCache = new NodeCache({ stdTTL: 86400, checkperiod: 3600 }); // 24h
+
 /**
- * Serviço para interagir com a API do TMDB
+ * Serviço para interagir com a API do TMDB com Arquitetura de Resolução de Entidades
  */
 export class TMDBService {
     /**
-     * Busca um título no TMDB
-     * @param {string} title - Nome do título
-     * @param {string} type - Tipo: 'movie' ou 'tv'
-     * @returns {Object|null} Dados do TMDB ou null
-     */
-    // ... (imports remain same)
-
-    /**
-     * Busca um título no TMDB com lógica de melhor match
+     * Busca um título no TMDB com lógica de pipeline robusta
      */
     async searchTitle(title, type = 'multi') {
         if (!TMDB_API_KEY) {
@@ -25,16 +23,49 @@ export class TMDBService {
             return null;
         }
 
+        const cacheKey = `match:${title}:${type}`;
+        const cached = entityCache.get(cacheKey);
+        if (cached) return cached;
+
         try {
             const { cleanTitle, year } = this.extractTitleAndYear(title);
-            const endpoint = type === 'multi' ? 'search/multi' : `search/${type}`;
-            const url = `${TMDB_BASE_URL}/${endpoint}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(cleanTitle)}&language=pt-BR`;
+            
+            // Etapa 1: Multi-query (Busca Inteligente)
+            const queries = [
+                cleanTitle, // Título sanitizado
+                title,      // Título original (com sufixos)
+            ];
 
-            const response = await fetch(url);
-            const data = await response.json();
+            // Se for One Piece, adiciona variações conhecidas
+            if (cleanTitle.toLowerCase().includes('one piece')) {
+                queries.push('One Piece Live Action');
+            }
 
-            if (data.results && data.results.length > 0) {
-                return this.findBestMatch(data.results, cleanTitle, year, type);
+            const candidatePool = [];
+            const processedIds = new Set();
+
+            // Executa as queries em paralelo
+            const searchPromises = queries.map(q => this._fetchFromTMDB(q, type));
+            const searchResults = await Promise.all(searchPromises);
+
+            for (const results of searchResults) {
+                for (const res of results) {
+                    if (!processedIds.has(res.id)) {
+                        candidatePool.push(res);
+                        processedIds.add(res.id);
+                    }
+                }
+            }
+
+            if (candidatePool.length === 0) return null;
+
+            // Etapa 2: Ranking com Sinais Ponderados
+            const bestMatch = this.rankCandidates(candidatePool, cleanTitle, year, type);
+            
+            if (bestMatch) {
+                const formatted = this.formatTMDBData(bestMatch);
+                entityCache.set(cacheKey, formatted);
+                return formatted;
             }
 
             return null;
@@ -44,79 +75,118 @@ export class TMDBService {
         }
     }
 
+    async _fetchFromTMDB(query, type) {
+        const endpoint = type === 'multi' ? 'search/multi' : `search/${type}`;
+        const url = `${TMDB_BASE_URL}/${endpoint}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=pt-BR`;
+        
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            return data.results || [];
+        } catch {
+            return [];
+        }
+    }
+
     /**
-     * Extrai título e ano (se existir)
+     * Extrai título e ano de forma controlada
      */
     extractTitleAndYear(rawTitle) {
-        // Tenta encontrar ano entre parênteses no final: "Title (2024)"
         const yearMatch = rawTitle.match(/\((\d{4})\)$/);
         let year = yearMatch ? parseInt(yearMatch[1]) : null;
 
-        // Limpa o título
         let cleanTitle = rawTitle
-            .replace(/\|.+$/g, '')
-            .replace(/\(.+\)/g, '')
-            .replace(/\[.+\]/g, '')
+            .replace(/\(\d{4}\)$/, '') // Remove ano no final
+            .replace(/(: A Série|: O Filme|\| Netflix|\| Disney\+| - Conteúdo Extra| Bonus Content)/gi, '')
             .trim();
 
         return { cleanTitle, year };
     }
 
     /**
-     * Encontra o melhor candidato entre os resultados
+     * Sistema de Pontuação Ponderada (Production Grade)
      */
-    findBestMatch(results, searchTitle, searchYear, searchType) {
-        const currentYear = new Date().getFullYear();
+    rankCandidates(candidates, searchTitle, searchYear, searchType) {
+        const maxPop = Math.max(...candidates.map(c => c.popularity || 1));
+        
+        const scored = candidates.map(res => {
+            const resultTitle = res.title || res.name || '';
+            const originalTitle = res.original_title || res.original_name || '';
+            const releaseDate = res.release_date || res.first_air_date || '';
+            const resYear = releaseDate ? parseInt(releaseDate.split('-')[0]) : 0;
+            const resPop = res.popularity || 0;
 
-        // Pontuação para cada resultado
-        const rankedResults = results.map(result => {
-            let score = 0;
-            const resultTitle = result.title || result.name;
-            const releaseDate = result.release_date || result.first_air_date || '';
-            const resultYear = releaseDate ? parseInt(releaseDate.split('-')[0]) : 0;
+            let scores = {
+                similarity: 0,
+                popularity: 0,
+                year: 0,
+                type: 0,
+                supplementary: 0
+            };
 
-            // 1. Match exato de título (ignora case)
-            if (resultTitle.toLowerCase() === searchTitle.toLowerCase()) {
-                score += 10;
-            } else if (resultTitle.toLowerCase().includes(searchTitle.toLowerCase())) {
-                score += 5;
-            }
+            // A. Similaridade de Título (40%) - Compara com título atual e original
+            const sim1 = stringSimilarity.compareTwoStrings(resultTitle.toLowerCase(), searchTitle.toLowerCase());
+            const sim2 = stringSimilarity.compareTwoStrings(originalTitle.toLowerCase(), searchTitle.toLowerCase());
+            scores.similarity = Math.max(sim1, sim2);
 
-            // 2. Ano (muito importante para "Top 10" atuais)
+            // B. Popularidade Normalizada (25%) - Logarithmic scale
+            scores.popularity = Math.log(resPop + 1) / Math.log(maxPop + 1);
+
+            // C. Ano com Tolerância (15%)
             if (searchYear) {
-                // Se temos ano de busca, prioriza ele
-                if (resultYear === searchYear) score += 20;
-                else if (Math.abs(resultYear - searchYear) <= 1) score += 10;
+                const yearDiff = Math.abs(resYear - searchYear);
+                if (yearDiff === 0) scores.year = 1.0;
+                else if (yearDiff <= 1) scores.year = 0.7;
+                else if (yearDiff <= 3) scores.year = 0.3;
             } else {
-                // Se não temos ano, prioriza lançamentos recentes (ano atual ou anterior)
-                if (resultYear === currentYear) score += 15;
-                else if (resultYear === currentYear - 1) score += 10;
-                else if (resultYear > currentYear - 5) score += 5;
+                // Se não informado, favorece recência levemente
+                const currentYear = new Date().getFullYear();
+                if (resYear === currentYear) scores.year = 0.5;
+                else if (resYear >= currentYear - 2) scores.year = 0.3;
             }
 
-            // 3. Popularidade (desempate)
-            score += (result.popularity / 100); // Pequeno peso para popularidade
-
-            // 4. Tipo correto (se searchType não for multi)
-            if (searchType !== 'multi' && result.media_type === searchType) {
-                score += 5;
+            // D. Tipo Match (10%)
+            if (searchType !== 'multi') {
+                const resType = (res.media_type === 'movie' || res.title) ? 'movie' : 'tv';
+                scores.type = (resType === searchType) ? 1.0 : 0.0;
+            } else {
+                scores.type = 1.0;
             }
 
-            return { ...result, score };
+            // E. Penalização Contextual de Conteúdo Suplementar
+            if (this.isSupplementary(resultTitle) || this.isSupplementary(res.overview || '')) {
+                scores.supplementary = -0.5; // Penalização leve conforme sugestão
+            }
+
+            // Cálculo do Score Final
+            const finalScore = 
+                (scores.similarity * 0.45) + 
+                (scores.popularity * 0.25) + 
+                (scores.year * 0.15) + 
+                (scores.type * 0.15) + 
+                scores.supplementary;
+
+            return { ...res, finalScore };
         });
 
-        // Ordena por maior pontuação
-        rankedResults.sort((a, b) => b.score - a.score);
-
-        // Retorna o melhor formatado
-        return this.formatTMDBData(rankedResults[0]);
+        // Ordenar e retornar o melhor
+        scored.sort((a, b) => b.finalScore - a.finalScore);
+        
+        console.log(`🎯 [TMDB] Top candidate for "${searchTitle}": ${scored[0].title || scored[0].name} (Score: ${scored[0].finalScore.toFixed(2)})`);
+        
+        return scored[0];
     }
 
-    // ... (keep searchMultipleResults, cleanTitle removed/refactored, formatTMDBData, enrichData)
-
-    searchMultipleResults(title, type = 'multi') {
-        // ... (existing implementation)
-        return []; // Placeholder to match original structure, assume user won't change this much
+    /**
+     * Detecta se um título é conteúdo suplementar/extra
+     */
+    isSupplementary(text) {
+        if (!text) return false;
+        const lower = text.toLowerCase();
+        const extras = ['conteúdo extra', 'bonus content', 'making of', 'behind the scenes', 'bastidores', 'especial', 'special evidence'];
+        
+        // Verifica se o texto contém algum dos termos ou tem similaridade alta com eles
+        return extras.some(word => lower.includes(word));
     }
 
     formatTMDBData(tmdbData) {
